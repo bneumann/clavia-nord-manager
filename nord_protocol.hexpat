@@ -7,16 +7,18 @@ fn get_string(u32 max_len) {
     return str_data;
 };
 
-// Length-prefixed string structure
-struct LengthString {
-    u8 length;
-    char data[length];
+// String record in payload
+struct StringRecord {
+    u8 padding[5];       // 5 zero bytes
+    u32 id_or_type;      // ID or type identifier
+    u32 str_length;      // String length (big-endian)
+    char string[str_length];  // The actual string
 };
 
 // Main Nord USB Message Format
 struct NordMessage {
-    u32 length;          // Total message length (0x00000012 = 18 bytes)
-    u32 command;         // Command code (0x00000007, 0x0000000c, 0x0000000a, etc)
+    u32 length;          // Total message length
+    u32 command;         // Command code (0x00000007, 0x0000000c, etc)
     u32 param1;          // Parameter 1 (query ID, request type)
     u32 param2;          // Parameter 2 (sequence number, data ID)
     
@@ -27,5 +29,4 @@ struct NordMessage {
 };
 
 // Parse all messages in the file as an array
-// Since we don't know the exact count, we estimate based on typical message sizes
 NordMessage messages[5189] @ 0x00;  // From the parser output: 5189 messages total
