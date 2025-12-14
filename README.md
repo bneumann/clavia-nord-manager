@@ -21,3 +21,85 @@ Likely usage for a Nord Stage:
 
 # Get bulk data from capture:
 tshark -r /home/benni/git/nord-manager-re/detection+readlibrary.pcapng -Y 'usb.src == "1.3.2" || usb.dst == "1.3.3"' -T fields -e usb.capdata > tmp.txt
+
+## Protokoll GET
+Command: 0x0000000c
+Param1: 0x0000000a
+
+### Piano Categories:
+Param2: 0x00000002
+Payload: 00000001
+
+Returns:
+Grand, Upright, Electric, Clav, ...
+
+### Bank:
+Param2: 0x00000002
+Payload: 00000002, 00000003, 00000004, 00000006
+
+Returns: 
+Name, and a number ?
+
+Remark for Payloads: 
+- 2,3,4 and 6 return "Bank 1" but 5 returns "Samp Lib"
+- 7 returns Banks A to P
+- 8 returns Bank 1 to 8
+- 9 returns Bank 1 to 8
+
+### SampLib
+Param2: 0x00000002
+Payload: 00000005
+
+Returns: 
+Name, and a number ?
+
+### Banks A-P
+Param2: 0x00000002
+Payload: 00000007
+
+Returns: 
+Banks A to P and a trailing number
+
+### Banks 1-8 (1.)
+Param2: 0x00000002
+Payload: 00000008
+
+Returns: 
+Banks 1 to 8 and a trailing number
+
+### Banks 1-8 (2.)
+Param2: 0x00000002
+Payload: 00000009
+
+Returns: 
+Banks 1 to 8 and a trailing number
+
+## Program
+Param2: 0x00000028
+Payload: 
+00000000 Query Program
+000000NN (Program Number)
+
+Returns:
+
+## Songs
+Param2: 0x00000028
+Payload:
+00000001 Query Song
+000000NN Song Number
+
+
+## Pianos
+Param2: 0x0000001e
+Payload:
+000000nn Piano Categories
+000000nn Location (Number in Category)
+
+Returns:
+2nd word: Piano Categorie
+3rd word: Location (Number in Category)
+4th word: Size in bytes 0c4e64f8 -> 197MB
+5th word: Identifier "npno"
+6th word: Version*100 -> 6.30 = 630 = 276
+9th word: Length of Description and Version
+10th word and following: Description and Version as string

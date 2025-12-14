@@ -108,6 +108,8 @@ class NordMessage:
                     sound_type = 'Sample'
                 elif sound_marker == 'ns3f':
                     sound_type = 'User?'
+                elif sound_marker == 'ns3s':
+                    sound_type = 'Songs'
                 elif sound_marker == 'ns3y':
                     sound_type = 'Synth'
                 else:
@@ -126,7 +128,10 @@ class NordMessage:
         result += f"  Param2: 0x{parsed['param2']:08x}\n"
         
         if parsed['payload']:
-            result += f"  Payload ({len(parsed['payload'])} bytes): {parsed['payload_hex']}\n"
+            (formatted_payload, formatted_ascii) = format_payload(parsed['payload'], parsed['payload_hex'])
+            #result += f"  Payload ({len(parsed['payload'])} bytes): {parsed['payload_hex']}\n"
+            result += f"  Payload:\n"
+            result += f"  {formatted_payload}\n  {formatted_ascii}\n"
         
         if parsed['sound_type']:
             result += f"  Sound Type: {parsed['sound_type']}\n" if parsed['sound_type'] else ""
@@ -166,6 +171,24 @@ def parse_hex_file(filename: str):
     
     return messages
 
+def format_payload(payload_bytes: bytes, payload_hex: str) -> str:
+    # Split payload hex into 8-character chunks for better readability
+    formatted_payload = ' '.join([payload_hex[i:i+8] for i in range(0, len(payload_hex), 8)])
+    
+    # Create ASCII representation (4 bytes per chunk, matching the 8-character hex chunks)
+    ascii_repr = []
+    for j in range(0, len(payload_bytes), 4):
+        chunk = payload_bytes[j:j+4]
+        ascii_chunk = ''
+        for byte in chunk:
+            if 32 <= byte <= 126:  # Printable ASCII
+                ascii_chunk += chr(byte) + ' '
+            else:
+                ascii_chunk += '..'
+        ascii_repr.append(ascii_chunk)
+    formatted_ascii = ' '.join(ascii_repr)
+    return (formatted_payload, formatted_ascii)
+
 
 def main():
     input_file = Path('tmp.txt')
@@ -187,6 +210,10 @@ def main():
     
     print(f"Wrote binary to {output_bin}\n")
     
+    # Clear payload file before writing
+    with open(payload_file, 'w') as f:
+        f.write('')
+    
     # Analyze each message
     print("=" * 80)
     print("PROTOCOL ANALYSIS")
@@ -207,8 +234,11 @@ def main():
                 commands[cmd] = []
             commands[cmd].append((i, msg))
             if parsed['payload']:
+                
+                (formatted_payload, formatted_ascii) = format_payload(parsed['payload'], parsed['payload_hex'])
                 with open(payload_file, 'a') as pf:
-                    pf.write(f"{parsed['payload'].hex()}\n")
+                    pf.write(f"{formatted_payload}\n")
+                    pf.write(f"{formatted_ascii}\n")
         
         print(f"Message {i}:")
         print(msg)

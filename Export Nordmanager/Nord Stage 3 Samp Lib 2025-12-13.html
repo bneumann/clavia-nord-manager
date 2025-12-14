@@ -1,0 +1,2412 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head>  
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <style>
+    .container {
+      width: 100%;
+      max-width: 1500px;
+      margin: auto;
+    }
+    table {
+      width: 100%;
+    }
+    table, th, td {
+      border-collapse: collapse;
+    }
+    tr {
+      border-bottom: solid;
+      border-width: 1px 0;
+      border-color: #E5E5E5;
+      background: inherit !important;
+      vertical-align: top;
+    }
+    th, td {
+      padding-top: .4em;
+      padding-bottom: .4em;
+    }
+    th {
+      font-family: Arial, serif;
+      text-align: left;
+    }
+    td { 
+      font-family: "Lucida Grande", Helvetica, Arial, Verdana, sans-serif;
+      padding-right: 1.2em;
+    }
+    h1 {
+      font-family: Arial, serif;
+      font-weight: lighter;
+      margin-bottom: .2em;
+      margin-left: .6em;
+    }
+    h3 {
+      font-family: Arial, serif;
+      font-weight: lighter;
+      margin-bottom: .2em;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2em;
+    }
+    .header > div{
+      display: flex;
+    }
+    .header > div > * {
+      align-self: end;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <span class="icon"> 
+          <svg width="120" height="120" viewBox="0 0 240 240" fill="none" xmlns"http://www.w3.org/2000/svg">
+            <g clip-path="url(#a6f4xma2ua)">
+              <path d="M240 0H0v240h240V0z" fill="#8C1A11"></path>
+              <path d="M135.824 155.338h-7.902v46.744h7.902v-46.744z" fill="#fff"></path>
+              <mask id="shi14rzr0b" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="25" y="145" width="202" height="58">
+                <path d="M226.849 145.037H25.199v57.045h201.65v-57.045z" fill="#fff"></path>
+              </mask>
+              <g mask="url(#shi14rzr0b)" fill="#fff">
+                <path d="M134.374 161.08c4.959-4.109 9.043-5.625 15.481-5.742 6.955-.125 11.507 1.52 16.772 6.064l-3.87 6.935c-3.193-4.355-7.019-6.241-12.418-6.129-7.898.166-14.663 6.278-14.663 13.974l-1.302-15.102zM204.041 145.037H196.3v57.044h7.741v-57.044zM42.224 179.621v22.464h-7.902v-46.743h7.902l-.044 6.785c4.632-4.898 9.583-6.862 16.655-6.785 11.506.121 20.501 7.785 22.473 19.126v27.617h-7.153V177.21c-.987-8.273-7.636-14.172-15.965-14.192-9.297-.024-15.728 6.661-16.05 17.627l.084-1.02v-.004z"></path>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M81.247 178.577c0-12.87 10.434-23.304 23.303-23.304 12.87 0 23.304 10.434 23.304 23.304 0 12.869-10.434 23.303-23.304 23.303-12.869 0-23.303-10.434-23.303-23.303zm7.257 0c0-8.862 7.185-16.047 16.046-16.047 8.862 0 16.047 7.185 16.047 16.047 0 8.861-7.185 16.046-16.047 16.046-8.861 0-16.046-7.185-16.046-16.046zM156.466 178.641c0-12.869 10.435-23.303 23.304-23.303 12.869 0 23.303 10.434 23.303 23.303 0 12.869-10.434 23.303-23.303 23.303-12.869 0-23.304-10.434-23.304-23.303zm7.258 0c0-8.862 7.184-16.046 16.046-16.046 8.862 0 16.046 7.184 16.046 16.046 0 8.862-7.184 16.046-16.046 16.046-8.862 0-16.046-7.184-16.046-16.046zM211.963 149.73v-1.681h1.198c.504-.024 1.121.101 1.201.717-.076.908-.705.96-1.439.96h-.96v.004zm0 .718h.96l1.439 2.398h.96l-1.682-2.398c.896-.154 1.512-.585 1.44-1.682.072-.971-.569-1.447-1.919-1.439H211v5.519h.959v-2.398h.004zm-2.878-.48c0-2.169 1.697-3.871 3.838-3.838 2.193-.033 3.894 1.669 3.838 3.838.056 2.379-1.645 4.068-3.838 4.08-2.141-.012-3.842-1.701-3.838-4.08zm3.838 4.798c2.633.06 4.85-1.952 4.798-4.798.052-2.649-2.165-4.665-4.798-4.56-2.58-.105-4.798 1.911-4.798 4.56 0 2.846 2.218 4.858 4.798 4.798z"></path> 
+              </g>
+            </g>
+            <defs>
+              <clipPath id="a6f4xma2ua">
+                <path fill="#fff" d="M0 0h240v240H0z"></path>
+              </clipPath>
+            </defs>
+          </svg>
+        </span>
+      </div>
+    </div>
+    <table>
+    <tr>
+      <th>Partition</td>
+      <th>Bank</td>
+      <th>Location</td>
+      <th>Name</td>
+      <th>Category</td>
+      <th>Version</td>
+      <th>Size</td>
+      <th>Info</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>1</td>
+      <td>OrchStrings Legato_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.9 MB</td>
+      <td>Used by 16 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>2</td>
+      <td>OrchStrings Leg HiVib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>3</td>
+      <td>OrchStrings Marc HiVib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>4</td>
+      <td>OrchStrings Tremolo_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>5</td>
+      <td>OrchStrings Pizzicato_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>6</td>
+      <td>ChamberStr Legato_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.7 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>7</td>
+      <td>ChamberStr Leg Vib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.8 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>8</td>
+      <td>ChamberStr Leg HiVib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.1 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>9</td>
+      <td>ChamberStr Marc HiVib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>10</td>
+      <td>ChamberStr Tremolo_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>11</td>
+      <td>ChamberStr Pizzicato_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>13</td>
+      <td>StudioStrings Marc Vib_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>6.8 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>14</td>
+      <td>StudioStrings Tremolo_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>15</td>
+      <td>StudioStrings Pizzicato_KH 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>16</td>
+      <td>Soft Strings Legato_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.8 MB</td>
+      <td>Used by 4 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>17</td>
+      <td>Soft Strings Leg LoVib_SR 3.1</td>
+      <td>Ensemble Strings</td>
+      <td>3.10</td>
+      <td>3.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>18</td>
+      <td>Full Strings Legato Vib_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>19</td>
+      <td>String Orchestra Leg Vib_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>4.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>20</td>
+      <td>Strings Ensemble Leg_KG 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>21</td>
+      <td>22-Violins Leg LoVib_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.7 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>22</td>
+      <td>16-Violin Legato_SO 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>23</td>
+      <td>16-Violin Staccato_SO 3.1</td>
+      <td>Ensemble Strings</td>
+      <td>3.10</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>24</td>
+      <td>16-Violins Pizzicato_SO 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>25</td>
+      <td>12-Violin Legato_SO 3.1</td>
+      <td>Ensemble Strings</td>
+      <td>3.10</td>
+      <td>3.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>26</td>
+      <td>11-Violas Legato_SO 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>27</td>
+      <td>16-Celli Legato Vibrato_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>28</td>
+      <td>10-Celli Legato_SO 3.1</td>
+      <td>Ensemble Strings</td>
+      <td>3.10</td>
+      <td>2.8 MB</td>
+      <td>Used by 5 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>29</td>
+      <td>10-Celli Staccato_SO 3.1</td>
+      <td>Ensemble Strings</td>
+      <td>3.10</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>30</td>
+      <td>String Quartet Leg Vib_SR mono 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.6 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>31</td>
+      <td>Combi Strings Leg Vib_SR 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>3.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>32</td>
+      <td>8-Basses Legato_SO 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>33</td>
+      <td>String Tremolo_SR mono 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>34</td>
+      <td>String Pizzicato_SR mono 3.0</td>
+      <td>Ensemble Strings</td>
+      <td>3.00</td>
+      <td>0.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>35</td>
+      <td>Solo Violin 1 Vibrato_SR mono 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>1.6 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>37</td>
+      <td>Solo Cello 1_SR mono 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>38</td>
+      <td>Solo Cello 1 Vibrato_SR mono 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>39</td>
+      <td>Solo Cello 2 Vibrato_SR 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>3.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>40</td>
+      <td>Duo Cello Vibrato_SR 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>41</td>
+      <td>NyckelHarpa_PS 3.1</td>
+      <td>Solo Strings</td>
+      <td>3.10</td>
+      <td>0.7 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>42</td>
+      <td>Duo Strings_SR 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>5.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>43</td>
+      <td>Duo Strings Vibrato_SR 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>4.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>44</td>
+      <td>Strings Quartet Solo Vib_KG 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>0.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>45</td>
+      <td>Pizzicato 1_DV 3.1</td>
+      <td>Solo Strings</td>
+      <td>3.10</td>
+      <td>0.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>46</td>
+      <td>Pizzicato 2_SR 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>0.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>47</td>
+      <td>Basses Legato_SO 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>2.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>48</td>
+      <td>Basses Stacc_SO 3.0</td>
+      <td>Solo Strings</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>49</td>
+      <td>3-Flutes Legato_SO 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>50</td>
+      <td>3-Clarinets Legato_SO 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>51</td>
+      <td>3-Oboes Legato_SO 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>52</td>
+      <td>3-Bassoons Legato_SO 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.7 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>53</td>
+      <td>Flutes + Clarinets Leg_SR 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.6 MB</td>
+      <td>Used by 6 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>54</td>
+      <td>Flutes + Oboe Legato_SR 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.3 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>55</td>
+      <td>All Winds Legato_SR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>56</td>
+      <td>French Horns 1  Leg_SR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>57</td>
+      <td>French Horns 2  Leg_KH 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>58</td>
+      <td>Horns+ Winds Legato_SR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>59</td>
+      <td>3-Trumpets Legato_SO 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>3.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>60</td>
+      <td>Trumpets Legato_KH 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>61</td>
+      <td>3-Trombones Legato_SO 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>62</td>
+      <td>Trombones Legato_KH 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>4.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>63</td>
+      <td>4-Horns Legato_SO 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>64</td>
+      <td>Brass Ensemble 1_KG 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>65</td>
+      <td>Brass Ensemble 2_KG 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>3.8 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>66</td>
+      <td>Brass Section Fall Sing_CL 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>0.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>67</td>
+      <td>Brass Section Pop 1_BR 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>2.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>68</td>
+      <td>Brass Section Pop 2_BR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>69</td>
+      <td>BrassSection Double 2_CL 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>4.4 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>70</td>
+      <td>Brass Section Single_CL 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>71</td>
+      <td>Soul Horn Trio_CL 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>3.4 MB</td>
+      <td>Used by 5 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>72</td>
+      <td>Soul Horn Trio+Baryton_CL 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>73</td>
+      <td>Orchestral Brass_SR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>3.0 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>74</td>
+      <td>Muted Brass Legato_SR 3.0</td>
+      <td>Ensemble Brass</td>
+      <td>3.00</td>
+      <td>2.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>75</td>
+      <td>Chinese Wind Section_CH 3.1</td>
+      <td>Ensemble Brass</td>
+      <td>3.10</td>
+      <td>1.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>76</td>
+      <td>Flute_ 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>77</td>
+      <td>Flute Vibrato_KG mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>78</td>
+      <td>Piccolo Flute_ 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>79</td>
+      <td>Bolivian Panpipe_PS mono 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>0.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>80</td>
+      <td>Pan Flute 1_KG mono 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>0.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>81</td>
+      <td>Panflute  Tremolo Slow_ 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>82</td>
+      <td>Dream Whistles_PS mono 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>0.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>83</td>
+      <td>Ney  Flute_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>84</td>
+      <td>Nor Flute_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>85</td>
+      <td>Bansuri Asian Flute_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>86</td>
+      <td>Nordic Whistle_PS mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>87</td>
+      <td>Celtic Whistle_PS mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>88</td>
+      <td>Privilege Flute_PS mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>89</td>
+      <td>Privilege Flute Vibrato_PS mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Used by 5 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>90</td>
+      <td>Quena Latin Flute_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>91</td>
+      <td>EP Polymoog_BR 3.1</td>
+      <td>Classic Synth</td>
+      <td>3.10</td>
+      <td>0.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>92</td>
+      <td>Bass Square OB8_BR 3.0</td>
+      <td>Bass Synth</td>
+      <td>3.00</td>
+      <td>0.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>93</td>
+      <td>BassnLead M12_BR 3.0</td>
+      <td>Lead Synth</td>
+      <td>3.00</td>
+      <td>2.0 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>94</td>
+      <td>Lead Square OB8_BR 3.0</td>
+      <td>Lead Synth</td>
+      <td>3.00</td>
+      <td>0.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>95</td>
+      <td>Lead Standard OB8_BR 3.0</td>
+      <td>Lead Synth</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>101</td>
+      <td>Alphorn_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>106</td>
+      <td>Tenor Saxophone_KG mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>107</td>
+      <td>Trumpet 1_ST mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>108</td>
+      <td>Muted Trumpet 1_ST 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>1.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>109</td>
+      <td>Muted Trumpet 2_ST mono 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>1.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>110</td>
+      <td>Trombone_ST 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>1.0 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>111</td>
+      <td>Muted Trombone_ST 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>112</td>
+      <td>Tenor Trombone_SO 3.1</td>
+      <td>Solo Brass</td>
+      <td>3.10</td>
+      <td>0.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>113</td>
+      <td>Bass Trombone_SO 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>114</td>
+      <td>Bagpipe Combi_BR mono 3.0</td>
+      <td>Solo Brass</td>
+      <td>3.00</td>
+      <td>0.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>115</td>
+      <td>Strings- Brass_SR stereo 3.0</td>
+      <td>Orchestral</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>116</td>
+      <td>Wind-String-Brass_SR 3.0</td>
+      <td>Orchestral</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>117</td>
+      <td>Ashbory Bass Finger_BS mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>118</td>
+      <td>Contra Bass Finger_BS mono 3.1</td>
+      <td>Bass</td>
+      <td>3.10</td>
+      <td>0.8 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>119</td>
+      <td>Contra Bass Fing Vib_BS mono 3.1</td>
+      <td>Bass</td>
+      <td>3.10</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>120</td>
+      <td>Contra Bass Plucked_ST mono 3.1</td>
+      <td>Bass</td>
+      <td>3.10</td>
+      <td>0.6 MB</td>
+      <td>Used by 4 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>121</td>
+      <td>Bass Flageolet_BR mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>122</td>
+      <td>Fretless Bass_BR mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>123</td>
+      <td>Bass Guitar_DV mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>124</td>
+      <td>Fend Jazz Fing Direct_ST mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>125</td>
+      <td>Fend Jazz Fing Preamp_ST mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>126</td>
+      <td>Fend Jazz Plectr Direct_CL mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>127</td>
+      <td>Fend Jazz Plectr Preamp_ST mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>128</td>
+      <td>Fend Prec Direct_ST mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>129</td>
+      <td>Fend Prec Fing Damp_BS mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>130</td>
+      <td>Fend Prec Pick Damp_BS mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>131</td>
+      <td>Fend Prec Preamp_ST mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>132</td>
+      <td>Hagstrom H8 Pick Damp_BS mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>133</td>
+      <td>Hofner 500-1 Pick_BS mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>134</td>
+      <td>BCL Slap Bass_BR mono 3.0</td>
+      <td>Bass</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>135</td>
+      <td>Steel Guitar_DV mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>136</td>
+      <td>Steel Guitar Finger_DV mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>137</td>
+      <td>Overland Guitar_PS mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>138</td>
+      <td>Nylon Guitar_DV mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Used by 4 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>139</td>
+      <td>12 String Guitar1_DV mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>1.6 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>140</td>
+      <td>Les Paul Neck-mic_SW mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>141</td>
+      <td>Lute Harp Soft_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>145</td>
+      <td>Koto_BR mono 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>146</td>
+      <td>Celtic Harp_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>147</td>
+      <td>Finnish Kantele_PS 3.1</td>
+      <td>Guitar/Plucked</td>
+      <td>3.10</td>
+      <td>4.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>148</td>
+      <td>Indian Santoor_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>2.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>149</td>
+      <td>Indian Surmantal_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>150</td>
+      <td>Persian Santur_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>2.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>151</td>
+      <td>Cimbalom Hard_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>152</td>
+      <td>Cimbalom Harm_PS 3.0</td>
+      <td>Guitar/Plucked</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>153</td>
+      <td>Ukrainian Bandura_PS mono 3.1</td>
+      <td>Guitar/Plucked</td>
+      <td>3.10</td>
+      <td>1.6 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>154</td>
+      <td>Marimba_ST mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>155</td>
+      <td>Xylophone_KG mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>156</td>
+      <td>Vibes_DV mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>157</td>
+      <td>Metallophone_DV 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>158</td>
+      <td>Kalimba_KG mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.1 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>159</td>
+      <td>Mbira_PS 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Used by 6 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>160</td>
+      <td>Celeste_ST mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.8 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>161</td>
+      <td>J-celeste_PS mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.8 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>162</td>
+      <td>Himalayan_BR mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>163</td>
+      <td>Small Bells_SO 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>164</td>
+      <td>Bells_ST 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>165</td>
+      <td>Small Chimes_ST 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.8 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>166</td>
+      <td>TubularBells_ST 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>2.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>167</td>
+      <td>Crotales_ST 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>168</td>
+      <td>Glockenspiel 1_KG mono 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>0.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>169</td>
+      <td>Glockenspiel 2_KG mono 3.1</td>
+      <td>Tuned Percussion</td>
+      <td>3.10</td>
+      <td>0.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>170</td>
+      <td>Belltower Gefle_PS 3.0</td>
+      <td>Tuned Percussion</td>
+      <td>3.00</td>
+      <td>1.6 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>171</td>
+      <td>Church Bells_SO 3.1</td>
+      <td>Tuned Percussion</td>
+      <td>3.10</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>172</td>
+      <td>DX7IIC FineTines_BR mono 3.0</td>
+      <td>Piano</td>
+      <td>3.00</td>
+      <td>2.0 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>173</td>
+      <td>Piano80_PS mono 3.0</td>
+      <td>Piano</td>
+      <td>3.00</td>
+      <td>2.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>174</td>
+      <td>Acoustic Piano 3_KG mono 3.0</td>
+      <td>Piano</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>175</td>
+      <td>Piano Korg M1_Korg mono 3.0</td>
+      <td>Piano</td>
+      <td>3.00</td>
+      <td>0.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>176</td>
+      <td>Toy Piano_DV stereo 3.0</td>
+      <td>Piano</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>177</td>
+      <td>Organ Flute 1_DV 3.0</td>
+      <td>Organ</td>
+      <td>3.00</td>
+      <td>2.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>178</td>
+      <td>Organ Flute 3_DV 3.0</td>
+      <td>Organ</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>179</td>
+      <td>G2 AnaClassic 1_CL stereo 3.0</td>
+      <td>Classic Synth</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>180</td>
+      <td>Cathedral Organ 3_SR 3.0</td>
+      <td>Organ</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>181</td>
+      <td>Carina1 Accordion_PS mono 3.0</td>
+      <td>Accordion/Harm</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>182</td>
+      <td>Carina4 Accordion_PS mono 3.0</td>
+      <td>Accordion/Harm</td>
+      <td>3.00</td>
+      <td>1.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>183</td>
+      <td>Weltmeister 4_PS mono 3.0</td>
+      <td>Accordion/Harm</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>184</td>
+      <td>Victorini Accordion 1_PS 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>1.8 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>185</td>
+      <td>Victorini Accordion 2_PS 3.0</td>
+      <td>Accordion/Harm</td>
+      <td>3.00</td>
+      <td>0.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>186</td>
+      <td>Orfeo Accordion 1_PS mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>187</td>
+      <td>Orfeo Accordion 2_PS mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>188</td>
+      <td>Orfeo Accordion 3_PS mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>189</td>
+      <td>Melodica Fast_PS mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>190</td>
+      <td>Melodica Slow_PS mono 3.0</td>
+      <td>Accordion/Harm</td>
+      <td>3.00</td>
+      <td>0.5 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>191</td>
+      <td>Harmonica_DV mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>192</td>
+      <td>Bluesharp_BR mono 3.1</td>
+      <td>Accordion/Harm</td>
+      <td>3.10</td>
+      <td>0.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>199</td>
+      <td>Angelic Choir 4 ah_PS 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>2.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>200</td>
+      <td>Angelic Choir 4 oh_PS 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>201</td>
+      <td>Angelic Choir6 Oh_PS 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.0 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>202</td>
+      <td>Big Choir_SO 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>203</td>
+      <td>Boys Choir Vib_KH 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>204</td>
+      <td>Boys Choir_KH 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>205</td>
+      <td>Choir Mixed Soft_SR 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>206</td>
+      <td>Female voices ah_SR 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>207</td>
+      <td>Female Voices Oh_SR 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>208</td>
+      <td>Small Choir Fem ah Soft_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.1 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>209</td>
+      <td>Small Choir Fem ah_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>210</td>
+      <td>Small Choir Fem oh Soft_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>211</td>
+      <td>Small Choir Fem oh_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>2.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>212</td>
+      <td>Small Choir Male ah Soft_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.4 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>213</td>
+      <td>Small Choir Male ah_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>214</td>
+      <td>Small Choir Male oh Soft_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>215</td>
+      <td>Small Choir Male oh_CL 3.0</td>
+      <td>Choir</td>
+      <td>3.00</td>
+      <td>3.4 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>216</td>
+      <td>ARP Quadra Str8 4 1_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>2.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>217</td>
+      <td>Crumar Performer Str1_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.6 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>218</td>
+      <td>Hohn StrMelody2_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>219</td>
+      <td>Korg Delta Strings8+4_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>220</td>
+      <td>ELKA Rhapsodie Str1_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>221</td>
+      <td>Eminent 310 Str FullReg_PH mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.0 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>222</td>
+      <td>Eminent 310 Str L 8+4_PH mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>223</td>
+      <td>Farf Polychrome Str 8+4_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>224</td>
+      <td>GodwinSymphony 8+4_BR mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>225</td>
+      <td>Logan Str Melody 8+4_PH mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>226</td>
+      <td>Logan Str Melody16+8+4_PH mono 3.0</td>
+      <td>Analog Strings</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>227</td>
+      <td>3 Violins Mellotron_MkII Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>228</td>
+      <td>2 Violins1 Mellotron_M400 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>229</td>
+      <td>16 Violin Mellotron_M400 Sml Stereo 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>3.8 MB</td>
+      <td>Used by 3 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>230</td>
+      <td>Celeste Mellotron_M300 Sml mono 3.1</td>
+      <td>Mellotron</td>
+      <td>3.10</td>
+      <td>0.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>231</td>
+      <td>Flute Mellotron_MkII Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>232</td>
+      <td>Guitar Mellotron_MKI Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>233</td>
+      <td>MixCustChoirMellotron_M400 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>234</td>
+      <td>Boys Choir Mellotron_M400 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>235</td>
+      <td>Recorder Mellotron_M400 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>236</td>
+      <td>Slow Vibra Mellotron_M300 Sml mono 3.1</td>
+      <td>Mellotron</td>
+      <td>3.10</td>
+      <td>1.2 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>237</td>
+      <td>Rock Guitar Mellotron_MKII Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>238</td>
+      <td>Orchestral Mellotron_M400 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>3.7 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>239</td>
+      <td>SoloViolin Chamberlin_UU Sml mono 3.1</td>
+      <td>Mellotron</td>
+      <td>3.10</td>
+      <td>2.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>240</td>
+      <td>3 Violins Chamberlin_MMaster Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>2.5 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>242</td>
+      <td>Bassoon Chamberlin_M25 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.3 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>243</td>
+      <td>Double Bass Chamberlin_UU Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>2.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>244</td>
+      <td>Female Voice Chamberlin_M25 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>0.9 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>245</td>
+      <td>Oboe Chamberlin_M35 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>2.3 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>246</td>
+      <td>OpenTrumpet Chamberlin_M35 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.9 MB</td>
+      <td>Used by 2 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>247</td>
+      <td>Trombone Chamberlin_MMaster Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>1.6 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>248</td>
+      <td>BassClarinet Chamberlin_MMaster Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>2.2 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>249</td>
+      <td>HarpArpeggioChamberlin_M35 Sml mono 3.0</td>
+      <td>Mellotron</td>
+      <td>3.00</td>
+      <td>4.2 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>250</td>
+      <td>G2 Eighties_CL stereo 3.0</td>
+      <td>Classic Synth</td>
+      <td>3.00</td>
+      <td>2.1 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>251</td>
+      <td>G2 Stage Key_CL stereo 3.0</td>
+      <td>Classic Synth</td>
+      <td>3.00</td>
+      <td>1.4 MB</td>
+      <td>Unused</td>
+    </tr>
+    <tr>
+      <td>Samp Lib</td>
+      <td>Samp Lib</td>
+      <td>252</td>
+      <td>Shakaky</td>
+      <td>Misc</td>
+      <td>3.00</td>
+      <td>0.5 MB</td>
+      <td>Used by 1 program/synth presets</td>
+    </tr>
+    </table>
+  </div>
+</body>
+</html>

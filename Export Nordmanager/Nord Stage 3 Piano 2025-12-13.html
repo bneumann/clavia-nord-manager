@@ -1,0 +1,452 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head>  
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <style>
+    .container {
+      width: 100%;
+      max-width: 1500px;
+      margin: auto;
+    }
+    table {
+      width: 100%;
+    }
+    table, th, td {
+      border-collapse: collapse;
+    }
+    tr {
+      border-bottom: solid;
+      border-width: 1px 0;
+      border-color: #E5E5E5;
+      background: inherit !important;
+      vertical-align: top;
+    }
+    th, td {
+      padding-top: .4em;
+      padding-bottom: .4em;
+    }
+    th {
+      font-family: Arial, serif;
+      text-align: left;
+    }
+    td { 
+      font-family: "Lucida Grande", Helvetica, Arial, Verdana, sans-serif;
+      padding-right: 1.2em;
+    }
+    h1 {
+      font-family: Arial, serif;
+      font-weight: lighter;
+      margin-bottom: .2em;
+      margin-left: .6em;
+    }
+    h3 {
+      font-family: Arial, serif;
+      font-weight: lighter;
+      margin-bottom: .2em;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2em;
+    }
+    .header > div{
+      display: flex;
+    }
+    .header > div > * {
+      align-self: end;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <span class="icon"> 
+          <svg width="120" height="120" viewBox="0 0 240 240" fill="none" xmlns"http://www.w3.org/2000/svg">
+            <g clip-path="url(#a6f4xma2ua)">
+              <path d="M240 0H0v240h240V0z" fill="#8C1A11"></path>
+              <path d="M135.824 155.338h-7.902v46.744h7.902v-46.744z" fill="#fff"></path>
+              <mask id="shi14rzr0b" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="25" y="145" width="202" height="58">
+                <path d="M226.849 145.037H25.199v57.045h201.65v-57.045z" fill="#fff"></path>
+              </mask>
+              <g mask="url(#shi14rzr0b)" fill="#fff">
+                <path d="M134.374 161.08c4.959-4.109 9.043-5.625 15.481-5.742 6.955-.125 11.507 1.52 16.772 6.064l-3.87 6.935c-3.193-4.355-7.019-6.241-12.418-6.129-7.898.166-14.663 6.278-14.663 13.974l-1.302-15.102zM204.041 145.037H196.3v57.044h7.741v-57.044zM42.224 179.621v22.464h-7.902v-46.743h7.902l-.044 6.785c4.632-4.898 9.583-6.862 16.655-6.785 11.506.121 20.501 7.785 22.473 19.126v27.617h-7.153V177.21c-.987-8.273-7.636-14.172-15.965-14.192-9.297-.024-15.728 6.661-16.05 17.627l.084-1.02v-.004z"></path>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M81.247 178.577c0-12.87 10.434-23.304 23.303-23.304 12.87 0 23.304 10.434 23.304 23.304 0 12.869-10.434 23.303-23.304 23.303-12.869 0-23.303-10.434-23.303-23.303zm7.257 0c0-8.862 7.185-16.047 16.046-16.047 8.862 0 16.047 7.185 16.047 16.047 0 8.861-7.185 16.046-16.047 16.046-8.861 0-16.046-7.185-16.046-16.046zM156.466 178.641c0-12.869 10.435-23.303 23.304-23.303 12.869 0 23.303 10.434 23.303 23.303 0 12.869-10.434 23.303-23.303 23.303-12.869 0-23.304-10.434-23.304-23.303zm7.258 0c0-8.862 7.184-16.046 16.046-16.046 8.862 0 16.046 7.184 16.046 16.046 0 8.862-7.184 16.046-16.046 16.046-8.862 0-16.046-7.184-16.046-16.046zM211.963 149.73v-1.681h1.198c.504-.024 1.121.101 1.201.717-.076.908-.705.96-1.439.96h-.96v.004zm0 .718h.96l1.439 2.398h.96l-1.682-2.398c.896-.154 1.512-.585 1.44-1.682.072-.971-.569-1.447-1.919-1.439H211v5.519h.959v-2.398h.004zm-2.878-.48c0-2.169 1.697-3.871 3.838-3.838 2.193-.033 3.894 1.669 3.838 3.838.056 2.379-1.645 4.068-3.838 4.08-2.141-.012-3.842-1.701-3.838-4.08zm3.838 4.798c2.633.06 4.85-1.952 4.798-4.798.052-2.649-2.165-4.665-4.798-4.56-2.58-.105-4.798 1.911-4.798 4.56 0 2.846 2.218 4.858 4.798 4.798z"></path> 
+              </g>
+            </g>
+            <defs>
+              <clipPath id="a6f4xma2ua">
+                <path fill="#fff" d="M0 0h240v240H0z"></path>
+              </clipPath>
+            </defs>
+          </svg>
+        </span>
+      </div>
+    </div>
+    <table>
+    <tr>
+      <th>Partition</td>
+      <th>Bank</td>
+      <th>Location</td>
+      <th>Name</td>
+      <th>Version</td>
+      <th>Size</td>
+      <th>Info</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>1</td>
+      <td>White Grand XL 6.3</td>
+      <td>6.30</td>
+      <td>203.7 MB</td>
+      <td>Used by 195 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>2</td>
+      <td>Grand Imperial Bdorf XL 5.3</td>
+      <td>5.30</td>
+      <td>197.0 MB</td>
+      <td>Used by 9 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>3</td>
+      <td>Grand Lady D   Stw D  Lrg 5.3</td>
+      <td>5.30</td>
+      <td>78.6 MB</td>
+      <td>Used by 4 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>4</td>
+      <td>Italian Grand Faz Lrg 5.3</td>
+      <td>5.30</td>
+      <td>97.3 MB</td>
+      <td>Used by 10 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>5</td>
+      <td>Velvet Grand Model1 Lrg 5.3</td>
+      <td>5.30</td>
+      <td>106.2 MB</td>
+      <td>Used by 10 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>6</td>
+      <td>Silver Grand SK7  Lrg 5.3</td>
+      <td>5.30</td>
+      <td>100.4 MB</td>
+      <td>Used by 14 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>7</td>
+      <td>Studio Grand 2 YaC7  Lrg 5.3</td>
+      <td>5.30</td>
+      <td>68.7 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>8</td>
+      <td>Bright Grand YaS4  Lrg 5.3</td>
+      <td>5.30</td>
+      <td>86.7 MB</td>
+      <td>Used by 9 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Grand</td>
+      <td>9</td>
+      <td>EGrand 3 Mono CP80Amped Sml 5.3</td>
+      <td>5.30</td>
+      <td>31.4 MB</td>
+      <td>Used by 18 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>1</td>
+      <td>Bambino Upright Baldwin XL 5.4</td>
+      <td>5.40</td>
+      <td>124.9 MB</td>
+      <td>Used by 10 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>3</td>
+      <td>Grand Upright YaU3 Lrg 5.4</td>
+      <td>5.40</td>
+      <td>85.6 MB</td>
+      <td>Used by 11 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>4</td>
+      <td>HonkyTonkUpright      Lrg 5.3</td>
+      <td>5.30</td>
+      <td>55.4 MB</td>
+      <td>Used by 8 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>5</td>
+      <td>Mellow Upright Bdrf C130 Lrg 5.4</td>
+      <td>5.40</td>
+      <td>98.3 MB</td>
+      <td>Used by 11 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>6</td>
+      <td>Queen Upright Bdorf Lrg 5.3</td>
+      <td>5.30</td>
+      <td>66.2 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>7</td>
+      <td>Rain Piano SvPnoFab Lrg 5.3</td>
+      <td>5.30</td>
+      <td>47.2 MB</td>
+      <td>Used by 2 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>8</td>
+      <td>Romantic Upright Schimmel Lrg5.3</td>
+      <td>5.30</td>
+      <td>60.1 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>9</td>
+      <td>BlueSwede Ostl&Alm Lrg 5.3</td>
+      <td>5.30</td>
+      <td>69.0 MB</td>
+      <td>Used by 4 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Upright</td>
+      <td>10</td>
+      <td>Saloon Upright Baumgardt Lrg 5.3</td>
+      <td>5.30</td>
+      <td>61.1 MB</td>
+      <td>Used by 1 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>1</td>
+      <td>EP1 Deep Timbre Lrg 6.0</td>
+      <td>6.00</td>
+      <td>12.0 MB</td>
+      <td>Used by 5 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>2</td>
+      <td>EP2 Ideal Timbre Lrg 6.0</td>
+      <td>6.00</td>
+      <td>10.5 MB</td>
+      <td>Used by 6 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>3</td>
+      <td>EP3 Shallow Close Lrg 6.0</td>
+      <td>6.00</td>
+      <td>10.6 MB</td>
+      <td>Used by 7 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>4</td>
+      <td>EP4 Mk5 80s Lrg 6.0</td>
+      <td>6.00</td>
+      <td>12.0 MB</td>
+      <td>Used by 9 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>5</td>
+      <td>EP5 BrightTines XL 6.0</td>
+      <td>6.00</td>
+      <td>23.6 MB</td>
+      <td>Used by 11 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>6</td>
+      <td>EP6 Sparkletop XL 6.0</td>
+      <td>6.00</td>
+      <td>19.6 MB</td>
+      <td>Used by 11 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>7</td>
+      <td>EP7 Amped Tines Med 6.0</td>
+      <td>6.00</td>
+      <td>17.7 MB</td>
+      <td>Used by 2 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>8</td>
+      <td>EP8 Nefertiti XL 6.0</td>
+      <td>6.00</td>
+      <td>28.9 MB</td>
+      <td>Used by 11 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>9</td>
+      <td>Wurlitzer 1 200A 5.3</td>
+      <td>5.30</td>
+      <td>5.9 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Electric</td>
+      <td>10</td>
+      <td>Wurlitzer 2 Amped XL 5.3</td>
+      <td>5.30</td>
+      <td>24.1 MB</td>
+      <td>Used by 6 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Clav</td>
+      <td>1</td>
+      <td>Clavinet D6 6.1</td>
+      <td>6.10</td>
+      <td>5.7 MB</td>
+      <td>Used by 14 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Clav</td>
+      <td>2</td>
+      <td>Ital Harpsich 1B Long Stri 5.0</td>
+      <td>5.00</td>
+      <td>9.7 MB</td>
+      <td>Used by 1 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Clav</td>
+      <td>3</td>
+      <td>Ital Harpsich 1D Lute 5.0</td>
+      <td>5.00</td>
+      <td>7.9 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Clav</td>
+      <td>4</td>
+      <td>French Harpsi 1D Lo8 Lo4 5.0</td>
+      <td>5.00</td>
+      <td>14.8 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Digital</td>
+      <td>1</td>
+      <td>DX7 FullTines  Lrg 5.4</td>
+      <td>5.40</td>
+      <td>11.2 MB</td>
+      <td>Used by 12 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Digital</td>
+      <td>2</td>
+      <td>DigiGrand 1  Sml 5.2</td>
+      <td>5.20</td>
+      <td>10.1 MB</td>
+      <td>Used by 4 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Digital</td>
+      <td>3</td>
+      <td>DigiGrand 2  Sml 5.2</td>
+      <td>5.20</td>
+      <td>9.6 MB</td>
+      <td>Used by 14 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Misc</td>
+      <td>1</td>
+      <td>Ballad EP1  Sml 5.2</td>
+      <td>5.20</td>
+      <td>24.8 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Misc</td>
+      <td>2</td>
+      <td>Ballad EP2  Sml 5.2</td>
+      <td>5.20</td>
+      <td>17.3 MB</td>
+      <td>Used by 5 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Misc</td>
+      <td>3</td>
+      <td>Silver EP  Sml 5.2</td>
+      <td>5.20</td>
+      <td>23.1 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    <tr>
+      <td>Piano</td>
+      <td>Misc</td>
+      <td>4</td>
+      <td>Hybrid EP  Sml 5.2</td>
+      <td>5.20</td>
+      <td>9.0 MB</td>
+      <td>Used by 3 programs</td>
+    </tr>
+    </table>
+  </div>
+</body>
+</html>
