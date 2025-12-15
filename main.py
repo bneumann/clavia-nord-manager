@@ -10,8 +10,6 @@ for device in devices:
 
 # Bus 001 Device 008: ID 0ffc:0026 Clavia DMI AB Nord Stage 3
 
-# Find the USB device
-device = usb.core.find(idVendor=0x0ffc, idProduct=0x0026)
 
 
 # Check endpoint capabilities:
