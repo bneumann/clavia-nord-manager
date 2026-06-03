@@ -33,6 +33,13 @@ public static class NordCommands
     public const uint ProgramLibraryId  = 0x00000007;  // library_id that selects Programs A-P (ns3f)
     public const uint PianoLibraryId    = 0x00000001;  // library_id that selects Pianos (npno); banks = categories
 
+    // Rename / write commands (confirmed from Rename N11 pcapng, 2026-06-03).
+    public const uint EditItemOpen    = 0x00000033;  // H→D: [bank_id, item_index, new_category_code]
+    public const uint EditItemOpenAck = 0x00000034;  // D→H
+    public const uint WriteName       = 0x0000001c;  // H→D: [bank_id, item_index, name_len, name_bytes]
+    public const uint WriteNameAck    = 0x0000001d;  // D→H
+    public const uint ProgressNotify  = 0x0000002c;  // D→H progress notification (emitted 2-3× before real ack)
+
     // Payload selectors for the "list banks" query (Param2 = 0x02).
     public const uint ListPianoCategories = 0x00000001;
     public const uint ListBank1 = 0x00000002;

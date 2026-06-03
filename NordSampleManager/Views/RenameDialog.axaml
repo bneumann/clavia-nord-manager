@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NordSampleManager.ViewModels"
+        x:Class="NordSampleManager.Views.RenameDialog"
+        x:DataType="vm:RenameDialogViewModel"
+        Title="Rename program"
+        Width="420" Height="240"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+  <Grid RowDefinitions="*,Auto" Margin="16">
+
+    <StackPanel Grid.Row="0" Spacing="12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Name" FontWeight="SemiBold"/>
+        <TextBox Text="{Binding Name}" MaxLength="16"
+                 KeyDown="OnKeyDown"/>
+      </StackPanel>
+      <StackPanel Spacing="4">
+        <TextBlock Text="Category" FontWeight="SemiBold"/>
+        <ComboBox ItemsSource="{Binding Categories}"
+                  SelectedItem="{Binding SelectedCategoryItem}"
+                  DisplayMemberBinding="{Binding Label}"
+                  HorizontalAlignment="Stretch"/>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8"
+                HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Cancel" Click="OnCancel" IsCancel="True"/>
+      <Button Content="Save"   Click="OnSave"   IsDefault="True"/>
+    </StackPanel>
+
+  </Grid>
+</Window>

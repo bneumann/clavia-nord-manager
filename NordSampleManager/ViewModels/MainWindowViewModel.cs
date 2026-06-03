@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NordSampleManager.Protocol.Records;
 using NordSampleManager.Services;
+using NordSampleManager.Views;
+using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
 
 namespace NordSampleManager.ViewModels;
 
@@ -16,12 +19,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string statusText = "Disconnected";
     [ObservableProperty] private bool canConnect = true;
     [ObservableProperty] private bool canReload;
+    [ObservableProperty] private bool canRename;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
 
-    // Re-evaluate button states whenever busy flag changes.
-    partial void OnIsBusyChanged(bool _) => UpdateStatus();
+    partial void OnIsBusyChanged(bool value) => UpdateStatus();
 
     public MainWindowViewModel(DeviceService deviceService, SoundLibrary library)
     {
@@ -48,6 +51,8 @@ public partial class MainWindowViewModel : ObservableObject
     private void OnCategoryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(CategoryViewModel.SelectedEntry)) return;
+        UpdateStatus();
+
         if (sender is not CategoryViewModel cat || cat.SelectedEntry is null)
         {
             DetailHeader = null;
@@ -76,8 +81,10 @@ public partial class MainWindowViewModel : ObservableObject
             ConnectionState.Failed       => $"Connection failed: {deviceService.LastError}",
             _ => "Unknown",
         };
+        var connected = !IsBusy && deviceService.State == ConnectionState.Connected;
         CanConnect = !IsBusy && deviceService.State is ConnectionState.Disconnected or ConnectionState.Failed;
-        CanReload  = !IsBusy && deviceService.State == ConnectionState.Connected;
+        CanReload  = connected;
+        CanRename  = connected && SelectedCategory?.SelectedEntry?.Ref?.ItemType == SoundItemType.Program;
     }
 
     [RelayCommand]
@@ -104,6 +111,63 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             await LoadLibraryAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RenameAsync()
+    {
+        var entry = SelectedCategory?.SelectedEntry;
+        if (entry?.Ref is not { ItemType: SoundItemType.Program } ref_) return;
+        if (deviceService.Client is null) return;
+
+        var vm = new RenameDialogViewModel(entry.Name, entry.CategoryCode);
+        var dialog = new RenameDialog { DataContext = vm };
+
+        Avalonia.Controls.Window? owner = null;
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
+            owner = dt.MainWindow;
+        if (owner is null) return;
+
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (!confirmed) return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await deviceService.Client
+                .RenameProgramAsync(ref_.Bank, ref_.Location, vm.Name, vm.CategoryCode)
+                .ToEither();
+
+            result.Match(
+                Right: _ =>
+                {
+                    // Update entry in-place — no full reload needed.
+                    var collection = library.ProgramBanks;
+                    var idx = collection.IndexOf(entry);
+                    if (idx >= 0)
+                    {
+                        var newCode = vm.CategoryCode;
+                        collection[idx] = entry with
+                        {
+                            Name         = vm.Name,
+                            CategoryCode = newCode,
+                            CategoryName = ProgramCat.FromCode(newCode).DisplayName(),
+                            Detail       = $"Category: {ProgramCat.FromCode(newCode).DisplayName()}"
+                                         + (entry.Detail?.Contains("Piano A:") == true
+                                             ? "\n" + entry.Detail.Split('\n').FirstOrDefault(l => l.StartsWith("Piano A:"))
+                                             : string.Empty),
+                        };
+                    }
+                    // Refresh detail pane.
+                    DetailHeader = vm.Name;
+                },
+                Left: err => StatusText = $"Rename failed: {err.Message}");
         }
         finally
         {

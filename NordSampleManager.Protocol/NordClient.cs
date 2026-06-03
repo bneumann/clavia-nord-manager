@@ -320,11 +320,12 @@ public sealed class NordClient : IDisposable
                 });
 
                 var info = new ProgramInfo(
-                    BankLetter: ((char)('A' + (int)bank)).ToString(),
-                    BankId:     (int)bank,
-                    ItemIndex:  (int)item,
-                    Name:       itemData.Name,
-                    PianoA:     pianoA);
+                    BankLetter:   ((char)('A' + (int)bank)).ToString(),
+                    BankId:       (int)bank,
+                    ItemIndex:    (int)item,
+                    Name:         itemData.Name,
+                    CategoryCode: itemData.CategoryField,
+                    PianoA:       pianoA);
 
                 return Right<NordError, Option<ProgramInfo>>(Some(info)).ToAsync();
             });
@@ -348,6 +349,79 @@ public sealed class NordClient : IDisposable
     private EitherAsync<NordError, Unit> CloseIteratorAsync(CancellationToken ct) =>
         from raw in SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.CloseIterator, ReadOnlyMemory<byte>.Empty, ct)
         select unit;
+
+    // ----------------------------------------------------------------
+    // Rename — confirmed protocol from pcapng RE, 2026-06-03.
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Rename a program and/or change its category. Both changes are sent in a single
+    /// edit session; pass the current CategoryCode unchanged if only renaming.
+    /// </summary>
+    public EitherAsync<NordError, Unit> RenameProgramAsync(
+        int bankId, int itemIndex, string newName, uint categoryCode, CancellationToken ct = default)
+    {
+        var libPayload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(libPayload, NordCommands.ProgramLibraryId);
+
+        var catPayload = new byte[12];
+        BinaryPrimitives.WriteUInt32BigEndian(catPayload.AsSpan(0, 4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(catPayload.AsSpan(4, 4), (uint)itemIndex);
+        BinaryPrimitives.WriteUInt32BigEndian(catPayload.AsSpan(8, 4), categoryCode);
+
+        var nameBytes = System.Text.Encoding.ASCII.GetBytes(newName);
+        var namePayload = new byte[12 + nameBytes.Length];
+        BinaryPrimitives.WriteUInt32BigEndian(namePayload.AsSpan(0, 4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(namePayload.AsSpan(4, 4), (uint)itemIndex);
+        BinaryPrimitives.WriteUInt32BigEndian(namePayload.AsSpan(8, 4), (uint)nameBytes.Length);
+        nameBytes.CopyTo(namePayload.AsSpan(12));
+
+        return
+            from _sel  in SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct)
+            from _cat  in SendAndWaitForAckAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.EditItemOpen, catPayload, NordCommands.EditItemOpenAck, ct)
+            from _name in SendAndWaitForAckAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.WriteName, namePayload, NordCommands.WriteNameAck, ct)
+            from _cls  in SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.CloseIterator, ReadOnlyMemory<byte>.Empty, ct)
+            select unit;
+    }
+
+    private EitherAsync<NordError, NordMessage> SendAndWaitForAckAsync(
+        uint cmd, uint param1, uint param2, ReadOnlyMemory<byte> payload,
+        uint ackParam2, CancellationToken ct)
+    {
+        var frame = MessageBuilder.Build(cmd, param1, param2, payload.Span);
+        return SendAndWaitForAckCoreAsync(frame, ackParam2, ct).ToAsync();
+    }
+
+    private async Task<Either<NordError, NordMessage>> SendAndWaitForAckCoreAsync(
+        ReadOnlyMemory<byte> frame, uint ackParam2, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var sendResult = await device.SendAsync(frame, ct).ToEither().ConfigureAwait(false);
+            if (sendResult.IsLeft) return sendResult.Map(_ => default(NordMessage));
+
+            while (true)
+            {
+                var rawResult = await device.ReceiveAsync(MaxResponseBytes, ct).ToEither().ConfigureAwait(false);
+                if (rawResult.IsLeft) return rawResult.Map(_ => default(NordMessage));
+
+                ReadOnlyMemory<byte> raw = default;
+                rawResult.IfRight(r => raw = r);
+
+                if (!MessageParser.TryParse(raw, out var msg))
+                    return Left<NordError, NordMessage>(new NordError.ParseFailed("Malformed ack frame during rename"));
+
+                if (msg.Param2 == ackParam2)
+                    return Right<NordError, NordMessage>(msg);
+                // p2=0x2c progress notification — keep reading
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
 
     // ----------------------------------------------------------------
     // Best-effort queries — protocol shape known, response parsing partial.

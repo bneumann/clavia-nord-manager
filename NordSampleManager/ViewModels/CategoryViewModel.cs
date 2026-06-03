@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NordSampleManager.Services;
 
@@ -12,9 +13,10 @@ public sealed partial class CategoryViewModel : ObservableObject
     public string Title { get; }
     public string Subtitle { get; }
     public ObservableCollection<BankEntry> Entries { get; }
+    public ObservableCollection<BankEntry> FilteredEntries { get; } = new();
 
-    [ObservableProperty]
-    private BankEntry? selectedEntry;
+    [ObservableProperty] private BankEntry? selectedEntry;
+    [ObservableProperty] private string filterText = string.Empty;
 
     public CategoryViewModel(LibraryCategory category, string title, string subtitle, ObservableCollection<BankEntry> entries)
     {
@@ -22,5 +24,25 @@ public sealed partial class CategoryViewModel : ObservableObject
         Title = title;
         Subtitle = subtitle;
         Entries = entries;
+        Entries.CollectionChanged += OnEntriesChanged;
+        RebuildFilter();
+    }
+
+    private void OnEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildFilter();
+
+    partial void OnFilterTextChanged(string value) => RebuildFilter();
+
+    private void RebuildFilter()
+    {
+        FilteredEntries.Clear();
+        var f = FilterText.Trim();
+        foreach (var e in Entries)
+        {
+            if (f.Length == 0
+                || e.Kind.Contains(f, StringComparison.OrdinalIgnoreCase)
+                || e.Name.Contains(f, StringComparison.OrdinalIgnoreCase)
+                || (e.Detail?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false))
+                FilteredEntries.Add(e);
+        }
     }
 }

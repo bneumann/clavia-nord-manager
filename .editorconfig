@@ -12,4 +12,4 @@ dotnet_naming_style.lower_case_no_underscore.word_separator =
 
 dotnet_naming_rule.private_members_lower_case.symbols = private_members
 dotnet_naming_rule.private_members_lower_case.style = lower_case_no_underscore
-dotnet_naming_rule.private_members_lower_case.severity = suggestion
+dotnet_naming_rule.private_members_lower_case.severity = warning

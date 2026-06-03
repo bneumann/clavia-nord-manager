@@ -3,6 +3,7 @@ using LanguageExt;
 using static LanguageExt.Prelude;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
+using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
 
 namespace NordSampleManager.Services;
 
@@ -64,10 +65,13 @@ public sealed class SoundLibrary
             ProgramBanks.Clear();
             foreach (var p in programs)
             {
-                var entry = new BankEntry($"Bank {p.BankLetter} · {p.Location:D2}", p.ItemIndex + 1, p.Name);
-                if (p.PianoA is not null)
-                    entry = entry with { Detail = $"Piano A: {p.PianoA}" };
-                ProgramBanks.Add(entry);
+                ProgramBanks.Add(new BankEntry($"Bank {p.BankLetter} · {p.Location:D2}", p.ItemIndex + 1, p.Name)
+                {
+                    Detail       = BuildProgramDetail(p),
+                    Ref          = new SoundRef(SoundItemType.Program, p.BankId, p.ItemIndex),
+                    CategoryCode = p.CategoryCode,
+                    CategoryName = ProgramCat.FromCode(p.CategoryCode).DisplayName(),
+                });
             }
         });
 
@@ -88,6 +92,14 @@ public sealed class SoundLibrary
         return unit;
     }
 
+    public static string BuildProgramDetail(ProgramInfo p)
+    {
+        var cat = ProgramCat.FromCode(p.CategoryCode).DisplayName();
+        var lines = new List<string> { $"Category: {cat}" };
+        if (p.PianoA is not null) lines.Add($"Piano A:  {p.PianoA}");
+        return string.Join("\n", lines);
+    }
+
     private static void FillFromStrings(ObservableCollection<BankEntry> target, string label,
         IReadOnlyList<string> names)
     {
@@ -98,6 +110,9 @@ public sealed class SoundLibrary
 
 public sealed record BankEntry(string Kind, int Index, string Name)
 {
-    public string? Detail { get; init; }
+    public string?   Detail       { get; init; }
+    public SoundRef? Ref          { get; init; }
+    public uint      CategoryCode { get; init; }
+    public string?   CategoryName { get; init; }
     public override string ToString() => $"{Kind} {Index}: {Name}";
 }
