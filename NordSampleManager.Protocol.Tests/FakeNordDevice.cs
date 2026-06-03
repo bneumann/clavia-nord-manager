@@ -1,14 +1,14 @@
-using LanguageExt;
-using static LanguageExt.Prelude;
+using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Transport;
 
 namespace NordSampleManager.Protocol.Tests;
 
 /// <summary>
 /// In-memory transport stub. Enqueue frames with <see cref="EnqueueReply"/> before calling any
-/// NordClient method; record what was sent via <see cref="SentFrames"/>.
-/// ReceiveAsync returns Left when the reply queue is empty (best-effort calls in NordClient
-/// silently swallow those errors, so tests only need to enqueue replies for checked receives).
+/// NordClient method; inspect what was sent via <see cref="SentFrames"/>.
+/// ReceiveAsync throws <see cref="NordException"/> when the reply queue is empty
+/// (best-effort calls in NordClient silently swallow those, so tests only need to
+/// enqueue replies for checked receives).
 /// </summary>
 internal sealed class FakeNordDevice : INordDevice
 {
@@ -24,21 +24,19 @@ internal sealed class FakeNordDevice : INordDevice
 
     public void EnqueueReply(byte[] frame) => _replies.Enqueue(frame);
 
-    public EitherAsync<NordError, Unit> ConnectAsync(CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit);
+    public Task ConnectAsync(CancellationToken ct = default) => Task.CompletedTask;
 
-    public EitherAsync<NordError, Unit> SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
+    public Task SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
     {
         SentFrames.Add(frame.ToArray());
-        return EitherAsync<NordError, Unit>.Right(unit);
+        return Task.CompletedTask;
     }
 
-    public EitherAsync<NordError, ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
+    public Task<ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
     {
         if (_replies.TryDequeue(out var reply))
-            return EitherAsync<NordError, ReadOnlyMemory<byte>>.Right(reply);
-        return EitherAsync<NordError, ReadOnlyMemory<byte>>.Left(
-            new NordError.DeviceDisconnected("FakeNordDevice: no reply queued"));
+            return Task.FromResult<ReadOnlyMemory<byte>>(reply);
+        throw new NordException(new NordError.DeviceDisconnected("FakeNordDevice: no reply queued"));
     }
 
     public void Dispose() { }

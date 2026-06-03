@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using LanguageExt;
-using static LanguageExt.Prelude;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
 using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
@@ -31,37 +29,29 @@ public sealed class SoundLibrary
     }
 
     /// <summary>
-    /// Load all collections from the device. Returns Left on a fatal transport or parse error.
-    /// The per-item program query (Param2=0x21, RE hypothesis) is best-effort: on failure it
-    /// silently keeps the bank-name fallback already in <see cref="ProgramBanks"/>.
+    /// Load all collections from the device. Throws <see cref="NordException"/> on a fatal
+    /// transport or parse error. Per-item program and piano queries are best-effort — on failure
+    /// they silently keep the bank-name placeholders already populated.
     /// </summary>
-    public async Task<Either<NordError, Unit>> LoadAsync(NordClient client, CancellationToken ct = default)
+    public async Task LoadAsync(NordClient client, CancellationToken ct = default)
     {
         Clear();
 
-        // Critical queries — all confirmed working. Failure here returns Left.
-        var listsResult = await (
-            from banks  in client.QueryBanksAtoPAsync(ct)
-            from samp   in client.QuerySampLibAsync(ct)
-            from songs  in client.QueryBanks1to8V1Async(ct)
-            from synths in client.QueryBanks1to8V2Async(ct)
-            select (banks, samp, songs, synths)
-        ).ToEither();
+        // Critical queries — failure throws and aborts the load.
+        var banks  = await client.QueryBanksAtoPAsync(ct);
+        var samp   = await client.QuerySampLibAsync(ct);
+        var songs  = await client.QueryBanks1to8V1Async(ct);
+        var synths = await client.QueryBanks1to8V2Async(ct);
 
-        if (listsResult.IsLeft) return listsResult.Map(_ => unit);
-
-        listsResult.IfRight(t =>
-        {
-            FillFromStrings(ProgramBanks, "Program bank", t.banks);
-            FillFromStrings(SampLibBanks, "Samp Lib",     t.samp);
-            FillFromStrings(SongBanks,    "Song bank",    t.songs);
-            FillFromStrings(SynthBanks,   "Synth bank",   t.synths);
-        });
+        FillFromStrings(ProgramBanks, "Program bank", banks);
+        FillFromStrings(SampLibBanks, "Samp Lib",     samp);
+        FillFromStrings(SongBanks,    "Song bank",    songs);
+        FillFromStrings(SynthBanks,   "Synth bank",   synths);
 
         // Best-effort: replace bank-name placeholders with rich per-item data.
-        var programsResult = await client.QueryAllProgramsAsync(ct).ToEither();
-        programsResult.IfRight(programs =>
+        try
         {
+            var programs = await client.QueryAllProgramsAsync(ct);
             ProgramBanks.Clear();
             foreach (var p in programs)
             {
@@ -73,23 +63,22 @@ public sealed class SoundLibrary
                     CategoryName = ProgramCat.FromCode(p.CategoryCode).DisplayName(),
                 });
             }
-        });
+        }
+        catch { /* keep placeholder data */ }
 
-        var pianosResult = await client.QueryAllPianoNamesAsync(ct).ToEither();
-        pianosResult.IfRight(pianos =>
+        try
         {
+            var pianos = await client.QueryAllPianoNamesAsync(ct);
             PianoCategories.Clear();
             foreach (var p in pianos)
             {
-                var entry = new BankEntry(p.Category, p.Location + 1, p.Name)
+                PianoCategories.Add(new BankEntry(p.Category, p.Location + 1, p.Name)
                 {
                     Detail = $"Version: {p.Version}"
-                };
-                PianoCategories.Add(entry);
+                });
             }
-        });
-
-        return unit;
+        }
+        catch { /* keep placeholder data */ }
     }
 
     public static string BuildProgramDetail(ProgramInfo p)

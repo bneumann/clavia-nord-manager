@@ -1,5 +1,3 @@
-using LanguageExt;
-using static LanguageExt.Prelude;
 using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
@@ -14,7 +12,6 @@ public sealed class LibUsbNordDevice : INordDevice
 
     private readonly ushort vid;
     private readonly ushort pid;
-
     private UsbContext? context;
     private IUsbDevice? device;
     private UsbEndpointWriter? writer;
@@ -39,24 +36,19 @@ public sealed class LibUsbNordDevice : INordDevice
     public event EventHandler? Disconnected;
 
     // ConnectAsync is synchronous internally; Task.Run keeps it off the UI thread.
-    public EitherAsync<NordError, Unit> ConnectAsync(CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                var result = await Task.Run(ConnectCore, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
+    public Task ConnectAsync(CancellationToken ct = default) =>
+        Task.Run(ConnectCore, ct);
 
-    private Either<NordError, Unit> ConnectCore()
+    private void ConnectCore()
     {
-        if (disposed) return new NordError.DeviceNotFound("Device is disposed.");
-        if (IsConnected) return unit;
+        if (disposed) throw new NordException(new NordError.DeviceNotFound("Device is disposed."));
+        if (IsConnected) return;
 
         context = new UsbContext();
         var found = context.Find(new UsbDeviceFinder { Vid = vid, Pid = pid });
         if (found is null)
-            return new NordError.DeviceNotFound(
-                $"USB device {vid:x4}:{pid:x4} not found. Is the Nord plugged in?");
+            throw new NordException(new NordError.DeviceNotFound(
+                $"USB device {vid:x4}:{pid:x4} not found. Is the Nord plugged in?"));
 
         found.Open();
         if (found is UsbDevice concrete)
@@ -65,81 +57,54 @@ public sealed class LibUsbNordDevice : INordDevice
         if (!found.ClaimInterface(InterfaceNumber))
         {
             found.Close();
-            return new NordError.InterfaceClaimFailed(
-                $"Could not claim interface {InterfaceNumber}. Check udev rules (see README).");
+            throw new NordException(new NordError.InterfaceClaimFailed(
+                $"Could not claim interface {InterfaceNumber}. Check udev rules (see README)."));
         }
         claimedInterface = true;
 
-        return FindBulkEndpoints(found).Match(
-            Right: endpoints =>
-            {
-                (bulkOutAddress, bulkInAddress) = endpoints;
-                writer = found.OpenEndpointWriter((WriteEndpointID)bulkOutAddress, EndpointType.Bulk);
-                reader = found.OpenEndpointReader((ReadEndpointID)bulkInAddress, 4096, EndpointType.Bulk);
-                device = found;
-                return Right<NordError, Unit>(unit);
-            },
-            Left: err => Left<NordError, Unit>(err));
+        var (outAddr, inAddr) = FindBulkEndpoints(found);
+        bulkOutAddress = outAddr;
+        bulkInAddress  = inAddr;
+        writer = found.OpenEndpointWriter((WriteEndpointID)outAddr, EndpointType.Bulk);
+        reader = found.OpenEndpointReader((ReadEndpointID)inAddr, 4096, EndpointType.Bulk);
+        device = found;
     }
 
-    public EitherAsync<NordError, Unit> SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
+    public async Task SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
     {
         if (!IsConnected)
-            return LeftAsync<NordError, Unit>(new NordError.DeviceDisconnected("Not connected."));
-        return EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                var result = await SendCoreAsync(frame, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
-    }
-
-    private async Task<Either<NordError, Unit>> SendCoreAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
-    {
+            throw new NordException(new NordError.DeviceDisconnected("Not connected."));
         var (err, _) = await writer!.WriteAsync(frame, DefaultTimeoutMs).WaitAsync(ct).ConfigureAwait(false);
-        return MapTransferError(err, sending: true)
-            .Match(Some: e => Left<NordError, Unit>(e), None: () => Right<NordError, Unit>(unit));
+        ThrowIfTransferError(err, sending: true);
     }
 
-    public EitherAsync<NordError, ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
+    public async Task<ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
     {
         if (!IsConnected)
-            return LeftAsync<NordError, ReadOnlyMemory<byte>>(new NordError.DeviceDisconnected("Not connected."));
-        return EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<ReadOnlyMemory<byte>>(async _ =>
-            {
-                var result = await ReceiveCoreAsync(maxLength, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
-    }
-
-    private async Task<Either<NordError, ReadOnlyMemory<byte>>> ReceiveCoreAsync(int maxLength, CancellationToken ct)
-    {
+            throw new NordException(new NordError.DeviceDisconnected("Not connected."));
         var buffer = new byte[maxLength];
         var (err, transferred) = await reader!.ReadAsync(buffer, DefaultTimeoutMs).WaitAsync(ct).ConfigureAwait(false);
-        return MapTransferError(err, sending: false)
-            .Match(
-                Some: e => Left<NordError, ReadOnlyMemory<byte>>(e),
-                None: () => Right<NordError, ReadOnlyMemory<byte>>(buffer.AsMemory(0, transferred)));
+        ThrowIfTransferError(err, sending: false);
+        return buffer.AsMemory(0, transferred);
     }
 
-    private Option<NordError> MapTransferError(LibUsbError err, bool sending)
+    private void ThrowIfTransferError(LibUsbError err, bool sending)
     {
-        if (err == LibUsbError.Success) return None;
+        if (err == LibUsbError.Success) return;
         var op = sending ? "send" : "receive";
         if (err is LibUsbError.NoDevice or LibUsbError.Io or LibUsbError.NotFound)
         {
             RaiseDisconnect();
-            return Some<NordError>(new NordError.DeviceDisconnected(
+            throw new NordException(new NordError.DeviceDisconnected(
                 $"Device disconnected during {op} (libusb {err})."));
         }
         if (err == LibUsbError.Timeout)
-            return Some<NordError>(new NordError.TransferTimeout(
+            throw new NordException(new NordError.TransferTimeout(
                 $"USB {op} timed out after {DefaultTimeoutMs} ms — command may not be supported yet."));
-        return Some<NordError>(new NordError.DeviceDisconnected($"USB {op} failed: {err}."));
+        throw new NordException(new NordError.DeviceDisconnected($"USB {op} failed: {err}."));
     }
 
-    private static Either<NordError, (byte outAddr, byte inAddr)> FindBulkEndpoints(IUsbDevice dev)
+    private static (byte outAddr, byte inAddr) FindBulkEndpoints(IUsbDevice dev)
     {
         foreach (var cfg in dev.Configs)
             foreach (var intf in cfg.Interfaces)
@@ -155,7 +120,7 @@ public sealed class LibUsbNordDevice : INordDevice
                 if (outAddr.HasValue && inAddr.HasValue)
                     return (outAddr.Value, inAddr.Value);
             }
-        return new NordError.NoEndpointsFound();
+        throw new NordException(new NordError.NoEndpointsFound());
     }
 
     private void RaiseDisconnect() => Disconnected?.Invoke(this, EventArgs.Empty);

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Commands;
 using NordSampleManager.Protocol.Framing;
 
@@ -12,7 +13,7 @@ public class NordClientTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    // Builds a minimal valid ack for any param2.
+    // Builds a minimal valid ack frame for any param2.
     private static byte[] AckFrame(uint param2) =>
         MessageBuilder.Build(NordCommands.CmdQuery, NordCommands.ParamQuery, param2, []);
 
@@ -37,15 +38,14 @@ public class NordClientTests
     public async Task DeleteProgramAsync_Success_SendsLibrarySelectThenDeleteRequest()
     {
         var device = new FakeNordDevice();
-        device.EnqueueReply(AckFrame(NordCommands.LibrarySelectAck));         // for LibrarySelect
-        device.EnqueueReply(StatusFrame(NordCommands.DeleteResponse, 0u));    // for DeleteRequest
+        device.EnqueueReply(AckFrame(NordCommands.LibrarySelectAck));
+        device.EnqueueReply(StatusFrame(NordCommands.DeleteResponse, 0u));
 
         using var client = new NordClient(device);
-        var result = await client.DeleteProgramAsync(bankId: 12, itemIndex: 17).ToEither();
+        await client.DeleteProgramAsync(bankId: 12, itemIndex: 17);
 
-        Assert.True(result.IsRight);
-        Assert.Equal(NordCommands.LibrarySelect,  SentParam2(device.SentFrames[0]));
-        Assert.Equal(NordCommands.DeleteRequest,  SentParam2(device.SentFrames[1]));
+        Assert.Equal(NordCommands.LibrarySelect, SentParam2(device.SentFrames[0]));
+        Assert.Equal(NordCommands.DeleteRequest, SentParam2(device.SentFrames[1]));
     }
 
     [Fact]
@@ -56,38 +56,34 @@ public class NordClientTests
         device.EnqueueReply(StatusFrame(NordCommands.DeleteResponse, 0u));
 
         using var client = new NordClient(device);
-        await client.DeleteProgramAsync(bankId: 12, itemIndex: 17).ToEither();
+        await client.DeleteProgramAsync(bankId: 12, itemIndex: 17);
 
         MessageParser.TryParse(device.SentFrames[1], out var delMsg);
         var p = delMsg.Payload.Span;
-        Assert.Equal(12u, BinaryPrimitives.ReadUInt32BigEndian(p[..4]));        // bank
-        Assert.Equal(17u, BinaryPrimitives.ReadUInt32BigEndian(p.Slice(4, 4))); // item
+        Assert.Equal(12u, BinaryPrimitives.ReadUInt32BigEndian(p[..4]));
+        Assert.Equal(17u, BinaryPrimitives.ReadUInt32BigEndian(p.Slice(4, 4)));
     }
 
     [Fact]
-    public async Task DeleteProgramAsync_NonZeroStatus_ReturnsLeft()
+    public async Task DeleteProgramAsync_NonZeroStatus_ThrowsNordException()
     {
         var device = new FakeNordDevice();
         device.EnqueueReply(AckFrame(NordCommands.LibrarySelectAck));
-        device.EnqueueReply(StatusFrame(NordCommands.DeleteResponse, 1u));    // status != 0
+        device.EnqueueReply(StatusFrame(NordCommands.DeleteResponse, 1u));
 
         using var client = new NordClient(device);
-        var result = await client.DeleteProgramAsync(bankId: 12, itemIndex: 17).ToEither();
-
-        Assert.True(result.IsLeft);
-        result.IfLeft(err => Assert.Contains("Delete failed", err.Message));
+        var ex = await Assert.ThrowsAsync<NordException>(() => client.DeleteProgramAsync(12, 17));
+        Assert.Contains("Delete failed", ex.Message);
     }
 
     [Fact]
-    public async Task DeleteProgramAsync_TransportError_ReturnsLeft()
+    public async Task DeleteProgramAsync_TransportError_ThrowsNordException()
     {
         var device = new FakeNordDevice();
-        // No replies queued → first ReceiveAsync returns Left
+        // No replies queued → first ReceiveAsync throws
 
         using var client = new NordClient(device);
-        var result = await client.DeleteProgramAsync(bankId: 0, itemIndex: 0).ToEither();
-
-        Assert.True(result.IsLeft);
+        await Assert.ThrowsAsync<NordException>(() => client.DeleteProgramAsync(0, 0));
     }
 
     // ── SwapProgramsAsync ─────────────────────────────────────────────────────
@@ -100,9 +96,8 @@ public class NordClientTests
         device.EnqueueReply(StatusFrame(NordCommands.SwapResponse, 0u));
 
         using var client = new NordClient(device);
-        var result = await client.SwapProgramsAsync(bank1: 13, item1: 6, bank2: 13, item2: 5).ToEither();
+        await client.SwapProgramsAsync(bank1: 13, item1: 6, bank2: 13, item2: 5);
 
-        Assert.True(result.IsRight);
         Assert.Equal(NordCommands.LibrarySelect, SentParam2(device.SentFrames[0]));
         Assert.Equal(NordCommands.SwapRequest,   SentParam2(device.SentFrames[1]));
     }
@@ -115,28 +110,27 @@ public class NordClientTests
         device.EnqueueReply(StatusFrame(NordCommands.SwapResponse, 0u));
 
         using var client = new NordClient(device);
-        await client.SwapProgramsAsync(bank1: 13, item1: 6, bank2: 13, item2: 5).ToEither();
+        await client.SwapProgramsAsync(bank1: 13, item1: 6, bank2: 13, item2: 5);
 
         // Confirmed from "Swap Bank N22 with N21.pcapng": 0000000d 00000006 0000000d 00000005
         MessageParser.TryParse(device.SentFrames[1], out var swapMsg);
         var p = swapMsg.Payload.Span;
-        Assert.Equal(13u, BinaryPrimitives.ReadUInt32BigEndian(p[..4]));          // bank1
-        Assert.Equal(6u,  BinaryPrimitives.ReadUInt32BigEndian(p.Slice(4,  4)));  // item1
-        Assert.Equal(13u, BinaryPrimitives.ReadUInt32BigEndian(p.Slice(8,  4)));  // bank2
-        Assert.Equal(5u,  BinaryPrimitives.ReadUInt32BigEndian(p.Slice(12, 4)));  // item2
+        Assert.Equal(13u, BinaryPrimitives.ReadUInt32BigEndian(p[..4]));
+        Assert.Equal(6u,  BinaryPrimitives.ReadUInt32BigEndian(p.Slice(4,  4)));
+        Assert.Equal(13u, BinaryPrimitives.ReadUInt32BigEndian(p.Slice(8,  4)));
+        Assert.Equal(5u,  BinaryPrimitives.ReadUInt32BigEndian(p.Slice(12, 4)));
     }
 
     [Fact]
-    public async Task SwapProgramsAsync_NonZeroStatus_ReturnsLeft()
+    public async Task SwapProgramsAsync_NonZeroStatus_ThrowsNordException()
     {
         var device = new FakeNordDevice();
         device.EnqueueReply(AckFrame(NordCommands.LibrarySelectAck));
         device.EnqueueReply(StatusFrame(NordCommands.SwapResponse, 0xFFu));
 
         using var client = new NordClient(device);
-        var result = await client.SwapProgramsAsync(bank1: 0, item1: 0, bank2: 0, item2: 1).ToEither();
-
-        Assert.True(result.IsLeft);
-        result.IfLeft(err => Assert.Contains("Swap failed", err.Message));
+        var ex = await Assert.ThrowsAsync<NordException>(() =>
+            client.SwapProgramsAsync(bank1: 0, item1: 0, bank2: 0, item2: 1));
+        Assert.Contains("Swap failed", ex.Message);
     }
 }

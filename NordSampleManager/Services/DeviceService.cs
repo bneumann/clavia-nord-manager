@@ -1,4 +1,3 @@
-using LanguageExt;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Transport;
 
@@ -29,24 +28,22 @@ public sealed class DeviceService : IDisposable
 
         var newDevice = new LibUsbNordDevice();
         var newClient = new NordClient(newDevice);
-
-        var result = await newClient.ConnectAsync(ct).ToEither();
-        result.Match(
-            Right: _ =>
-            {
-                device = newDevice;
-                client = newClient;
-                newDevice.Disconnected += OnDeviceDisconnected;
-                LastError = null;
-                SetState(ConnectionState.Connected);
-            },
-            Left: err =>
-            {
-                LastError = err.Message;
-                newClient.Dispose();
-                newDevice.Dispose();
-                SetState(ConnectionState.Failed);
-            });
+        try
+        {
+            await newClient.ConnectAsync(ct);
+            device = newDevice;
+            client = newClient;
+            newDevice.Disconnected += OnDeviceDisconnected;
+            LastError = null;
+            SetState(ConnectionState.Connected);
+        }
+        catch (NordException ex)
+        {
+            LastError = ex.Message;
+            newClient.Dispose();
+            newDevice.Dispose();
+            SetState(ConnectionState.Failed);
+        }
     }
 
     private void OnDeviceDisconnected(object? sender, EventArgs e)
@@ -61,7 +58,7 @@ public sealed class DeviceService : IDisposable
 
         // Send session-close handshake before releasing USB. Best-effort: cap at 1 s.
         if (client is not null)
-            try { Task.Run(() => client.DisconnectAsync().ToEither()).Wait(TimeSpan.FromSeconds(1)); }
+            try { Task.Run(() => client.DisconnectAsync()).Wait(TimeSpan.FromSeconds(1)); }
             catch { /* ignored */ }
 
         client?.Dispose();

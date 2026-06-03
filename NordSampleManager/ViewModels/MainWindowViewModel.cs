@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
 using NordSampleManager.Services;
 using NordSampleManager.Views;
@@ -135,10 +136,7 @@ public partial class MainWindowViewModel : ObservableObject
         var vm = new RenameDialogViewModel(entry.Name, entry.CategoryCode);
         var dialog = new RenameDialog { DataContext = vm };
 
-        Avalonia.Controls.Window? owner = null;
-        if (Avalonia.Application.Current?.ApplicationLifetime is
-            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
-            owner = dt.MainWindow;
+        Avalonia.Controls.Window? owner = GetMainWindow();
         if (owner is null) return;
 
         var confirmed = await dialog.ShowDialog<bool>(owner);
@@ -147,34 +145,29 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await deviceService.Client
-                .RenameProgramAsync(ref_.Bank, ref_.Location, vm.Name, vm.CategoryCode)
-                .ToEither();
+            await deviceService.Client.RenameProgramAsync(ref_.Bank, ref_.Location, vm.Name, vm.CategoryCode);
 
-            result.Match(
-                Right: _ =>
+            var collection = library.ProgramBanks;
+            var idx = collection.IndexOf(entry);
+            if (idx >= 0)
+            {
+                var newCode = vm.CategoryCode;
+                collection[idx] = entry with
                 {
-                    // Update entry in-place — no full reload needed.
-                    var collection = library.ProgramBanks;
-                    var idx = collection.IndexOf(entry);
-                    if (idx >= 0)
-                    {
-                        var newCode = vm.CategoryCode;
-                        collection[idx] = entry with
-                        {
-                            Name         = vm.Name,
-                            CategoryCode = newCode,
-                            CategoryName = ProgramCat.FromCode(newCode).DisplayName(),
-                            Detail       = $"Category: {ProgramCat.FromCode(newCode).DisplayName()}"
-                                         + (entry.Detail?.Contains("Piano A:") == true
-                                             ? "\n" + entry.Detail.Split('\n').FirstOrDefault(l => l.StartsWith("Piano A:"))
-                                             : string.Empty),
-                        };
-                    }
-                    // Refresh detail pane.
-                    DetailHeader = vm.Name;
-                },
-                Left: err => StatusText = $"Rename failed: {err.Message}");
+                    Name         = vm.Name,
+                    CategoryCode = newCode,
+                    CategoryName = ProgramCat.FromCode(newCode).DisplayName(),
+                    Detail       = $"Category: {ProgramCat.FromCode(newCode).DisplayName()}"
+                                 + (entry.Detail?.Contains("Piano A:") == true
+                                     ? "\n" + entry.Detail.Split('\n').FirstOrDefault(l => l.StartsWith("Piano A:"))
+                                     : string.Empty),
+                };
+            }
+            DetailHeader = vm.Name;
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Rename failed: {ex.Message}";
         }
         finally
         {
@@ -189,26 +182,20 @@ public partial class MainWindowViewModel : ObservableObject
         if (entry?.Ref is not { ItemType: SoundItemType.Program } ref_) return;
         if (deviceService.Client is null) return;
 
-        Avalonia.Controls.Window? owner = null;
-        if (Avalonia.Application.Current?.ApplicationLifetime is
-            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
-            owner = dt.MainWindow;
+        var owner = GetMainWindow();
         if (owner is null) return;
 
         var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(owner);
         if (topLevel is null) return;
 
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(
-            new Avalonia.Platform.Storage.FilePickerSaveOptions
+            new FilePickerSaveOptions
             {
                 Title = "Export program",
                 SuggestedFileName = $"{entry.Name}.ns3f",
                 FileTypeChoices =
                 [
-                    new Avalonia.Platform.Storage.FilePickerFileType("Nord Stage 3 Program")
-                    {
-                        Patterns = ["*.ns3f"],
-                    },
+                    new FilePickerFileType("Nord Stage 3 Program") { Patterns = ["*.ns3f"] },
                 ],
             });
         if (file is null) return;
@@ -216,22 +203,14 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await deviceService.Client
-                .DownloadProgramAsync(ref_.Bank, ref_.Location)
-                .ToEither();
-
-            await result.Match<System.Threading.Tasks.Task>(
-                Right: async bytes =>
-                {
-                    await using var stream = await file.OpenWriteAsync();
-                    await stream.WriteAsync(bytes);
-                    StatusText = $"Exported: {entry.Name}.ns3f";
-                },
-                Left: err =>
-                {
-                    StatusText = $"Export failed: {err.Message}";
-                    return System.Threading.Tasks.Task.CompletedTask;
-                });
+            var bytes = await deviceService.Client.DownloadProgramAsync(ref_.Bank, ref_.Location);
+            await using var stream = await file.OpenWriteAsync();
+            await stream.WriteAsync(bytes);
+            StatusText = $"Exported: {entry.Name}.ns3f";
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Export failed: {ex.Message}";
         }
         finally
         {
@@ -244,24 +223,17 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (deviceService.Client is null) return;
 
-        Avalonia.Controls.Window? owner = null;
-        if (Avalonia.Application.Current?.ApplicationLifetime is
-            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
-            owner = dt.MainWindow;
+        var owner = GetMainWindow();
         if (owner is null) return;
 
         var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(owner);
         if (topLevel is null) return;
 
-        // File open picker — .ns3f only.
         var picks = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open program file",
             AllowMultiple = false,
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Nord Stage 3 Program") { Patterns = ["*.ns3f"] },
-            ],
+            FileTypeFilter = [new FilePickerFileType("Nord Stage 3 Program") { Patterns = ["*.ns3f"] }],
         });
         if (picks.Count == 0) return;
 
@@ -285,10 +257,7 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        // Default name = filename without extension (capped at 16 chars).
         var defaultName = System.IO.Path.GetFileNameWithoutExtension(picks[0].Name);
-
-        // Build a lookup of occupied (bank, location) → name so the dialog can warn on overwrite.
         var occupied = library.ProgramBanks
             .Where(e => e.Ref.HasValue)
             .ToDictionary(
@@ -304,13 +273,12 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await deviceService.Client
-                .UploadProgramAsync(vm.BankId, vm.ItemIndex, vm.Name, cbin.FileType, cbin.RawData, vm.CategoryCode)
-                .ToEither();
-
-            result.Match(
-                Right: _ => StatusText = $"Uploaded: {vm.Name}",
-                Left:  err => StatusText = $"Upload failed: {err.Message}");
+            await deviceService.Client.UploadProgramAsync(vm.BankId, vm.ItemIndex, vm.Name, cbin.FileType, cbin.RawData, vm.CategoryCode);
+            StatusText = $"Uploaded: {vm.Name}";
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Upload failed: {ex.Message}";
         }
         finally
         {
@@ -325,10 +293,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (entry?.Ref is not { ItemType: SoundItemType.Program } ref_) return;
         if (deviceService.Client is null) return;
 
-        Avalonia.Controls.Window? owner = null;
-        if (Avalonia.Application.Current?.ApplicationLifetime is
-            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
-            owner = dt.MainWindow;
+        var owner = GetMainWindow();
         if (owner is null) return;
 
         var vm = new ConfirmDialogViewModel(
@@ -343,19 +308,15 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await deviceService.Client
-                .DeleteProgramAsync(ref_.Bank, ref_.Location)
-                .ToEither();
-
-            result.Match(
-                Right: _ =>
-                {
-                    library.ProgramBanks.Remove(entry);
-                    DetailHeader = null;
-                    DetailBody   = null;
-                    StatusText   = $"Deleted: {entry.Name}";
-                },
-                Left: err => StatusText = $"Delete failed: {err.Message}");
+            await deviceService.Client.DeleteProgramAsync(ref_.Bank, ref_.Location);
+            library.ProgramBanks.Remove(entry);
+            DetailHeader = null;
+            DetailBody   = null;
+            StatusText   = $"Deleted: {entry.Name}";
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Delete failed: {ex.Message}";
         }
         finally
         {
@@ -369,10 +330,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (target.Ref is not { ItemType: SoundItemType.Program } tgt) return;
         if (deviceService.Client is null) return;
 
-        Avalonia.Controls.Window? owner = null;
-        if (Avalonia.Application.Current?.ApplicationLifetime is
-            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
-            owner = dt.MainWindow;
+        var owner = GetMainWindow();
         if (owner is null) return;
 
         var vm = new ConfirmDialogViewModel(
@@ -386,35 +344,32 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await deviceService.Client
-                .SwapProgramsAsync(src.Bank, src.Location, tgt.Bank, tgt.Location)
-                .ToEither();
+            await deviceService.Client.SwapProgramsAsync(src.Bank, src.Location, tgt.Bank, tgt.Location);
 
-            result.Match(
-                Right: _ =>
+            var idx1 = library.ProgramBanks.IndexOf(source);
+            var idx2 = library.ProgramBanks.IndexOf(target);
+            if (idx1 >= 0 && idx2 >= 0)
+            {
+                library.ProgramBanks[idx1] = source with
                 {
-                    var idx1 = library.ProgramBanks.IndexOf(source);
-                    var idx2 = library.ProgramBanks.IndexOf(target);
-                    if (idx1 >= 0 && idx2 >= 0)
-                    {
-                        library.ProgramBanks[idx1] = source with
-                        {
-                            Name         = target.Name,
-                            CategoryCode = target.CategoryCode,
-                            CategoryName = target.CategoryName,
-                            Detail       = target.Detail,
-                        };
-                        library.ProgramBanks[idx2] = target with
-                        {
-                            Name         = source.Name,
-                            CategoryCode = source.CategoryCode,
-                            CategoryName = source.CategoryName,
-                            Detail       = source.Detail,
-                        };
-                    }
-                    StatusText = $"Swapped: {source.Name} ↔ {target.Name}";
-                },
-                Left: err => StatusText = $"Swap failed: {err.Message}");
+                    Name         = target.Name,
+                    CategoryCode = target.CategoryCode,
+                    CategoryName = target.CategoryName,
+                    Detail       = target.Detail,
+                };
+                library.ProgramBanks[idx2] = target with
+                {
+                    Name         = source.Name,
+                    CategoryCode = source.CategoryCode,
+                    CategoryName = source.CategoryName,
+                    Detail       = source.Detail,
+                };
+            }
+            StatusText = $"Swapped: {source.Name} ↔ {target.Name}";
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Swap failed: {ex.Message}";
         }
         finally
         {
@@ -424,9 +379,20 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task LoadLibraryAsync()
     {
-        var loadResult = await library.LoadAsync(deviceService.Client!);
-        loadResult.IfLeft(err => StatusText = $"Load error: {err.Message}");
-        SelectedCategory ??= Categories[0];
-        if (loadResult.IsRight) UpdateStatus();
+        try
+        {
+            await library.LoadAsync(deviceService.Client!);
+            SelectedCategory ??= Categories[0];
+            UpdateStatus();
+        }
+        catch (NordException ex)
+        {
+            StatusText = $"Load error: {ex.Message}";
+        }
     }
+
+    private static Avalonia.Controls.Window? GetMainWindow() =>
+        Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt
+            ? dt.MainWindow : null;
 }

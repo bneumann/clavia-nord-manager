@@ -37,21 +37,6 @@ public class MessageParserTests
         Assert.False(MessageParser.TryParse(frame, out _));
     }
 
-    // ── Parse (functional variant) ────────────────────────────────────────────
-
-    [Fact]
-    public void Parse_ValidFrame_ReturnsRight()
-    {
-        var frame = MessageBuilder.Build(command: 0x07, param1: 0, param2: 2, payload: []);
-        Assert.True(MessageParser.Parse(frame).IsRight);
-    }
-
-    [Fact]
-    public void Parse_TooShort_ReturnsLeft()
-    {
-        Assert.True(MessageParser.Parse(new byte[10]).IsLeft);
-    }
-
     // ── VerifyCrc ─────────────────────────────────────────────────────────────
 
     [Fact]
@@ -85,14 +70,11 @@ public class MessageParserTests
         Encoding.ASCII.GetBytes("Piano").CopyTo(payload.AsSpan(33, 5));
 
         var result = MessageParser.ParseProgramDetail(payload);
-        Assert.True(result.IsSome);
-        result.IfSome(d =>
-        {
-            Assert.Equal(13, d.BankId);
-            Assert.Equal(6, d.ItemId);
-            Assert.True(d.IsOccupied);
-            Assert.Equal("Piano", d.Name);
-        });
+        Assert.NotNull(result);
+        Assert.Equal(13, result.BankId);
+        Assert.Equal(6, result.ItemId);
+        Assert.True(result.IsOccupied);
+        Assert.Equal("Piano", result.Name);
     }
 
     [Fact]
@@ -101,11 +83,11 @@ public class MessageParserTests
         var payload = new byte[40];
         payload[16] = 1;   // occupied, but…
         payload[32] = 0;   // nameLen = 0 → None
-        Assert.True(MessageParser.ParseProgramDetail(payload).IsNone);
+        Assert.Null(MessageParser.ParseProgramDetail(payload));
     }
 
     [Fact]
-    public void ParseProgramDetail_NotOccupied_ReturnsSomeWithFlagFalse()
+    public void ParseProgramDetail_NotOccupied_ReturnsResultWithFlagFalse()
     {
         var payload = new byte[40];
         payload[16] = 0;   // not occupied
@@ -113,15 +95,15 @@ public class MessageParserTests
         Encoding.ASCII.GetBytes("ABC").CopyTo(payload.AsSpan(33, 3));
 
         var result = MessageParser.ParseProgramDetail(payload);
-        Assert.True(result.IsSome);
-        result.IfSome(d => Assert.False(d.IsOccupied));
+        Assert.NotNull(result);
+        Assert.False(result.IsOccupied);
     }
 
     [Fact]
-    public void ParseProgramDetail_TooShort_ReturnsNone()
+    public void ParseProgramDetail_TooShort_ReturnsNull()
     {
-        Assert.True(MessageParser.ParseProgramDetail(new byte[33]).IsNone);
-        Assert.True(MessageParser.ParseProgramDetail(Array.Empty<byte>()).IsNone);
+        Assert.Null(MessageParser.ParseProgramDetail(new byte[33]));
+        Assert.Null(MessageParser.ParseProgramDetail(Array.Empty<byte>()));
     }
 
     // ── ParseIteratorState ────────────────────────────────────────────────────
@@ -135,13 +117,10 @@ public class MessageParserTests
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8, 4), 7u);    // next_item
 
         var result = MessageParser.ParseIteratorState(payload);
-        Assert.True(result.IsSome);
-        result.IfSome(s =>
-        {
-            Assert.Equal(13u, s.Bank);
-            Assert.Equal(7u, s.NextItem);
-            Assert.False(s.IsEndOfBank);
-        });
+        Assert.NotNull(result);
+        Assert.Equal(13u, result.Value.Bank);
+        Assert.Equal(7u, result.Value.NextItem);
+        Assert.False(result.Value.IsEndOfBank);
     }
 
     [Fact]
@@ -151,15 +130,15 @@ public class MessageParserTests
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), 1u);    // counter=1 → end of bank
 
         var result = MessageParser.ParseIteratorState(payload);
-        Assert.True(result.IsSome);
-        result.IfSome(s => Assert.True(s.IsEndOfBank));
+        Assert.NotNull(result);
+        Assert.True(result.Value.IsEndOfBank);
     }
 
     [Fact]
     public void ParseIteratorState_TooShort_ReturnsNone()
     {
-        Assert.True(MessageParser.ParseIteratorState(new byte[11]).IsNone);
-        Assert.True(MessageParser.ParseIteratorState(Array.Empty<byte>()).IsNone);
+        Assert.Null(MessageParser.ParseIteratorState(new byte[11]));
+        Assert.Null(MessageParser.ParseIteratorState(Array.Empty<byte>()));
     }
 
     // ── ExtractStrings ────────────────────────────────────────────────────────

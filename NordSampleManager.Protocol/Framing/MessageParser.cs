@@ -1,19 +1,10 @@
 using System.Buffers.Binary;
 using System.Text;
-using LanguageExt;
-using static LanguageExt.Prelude;
-using NordSampleManager.Protocol.Commands;
 
 namespace NordSampleManager.Protocol.Framing;
 
 public static class MessageParser
 {
-    /// <summary>Functional variant of <see cref="TryParse"/> — returns Left on malformed frames.</summary>
-    public static Either<NordError, NordMessage> Parse(ReadOnlyMemory<byte> frame) =>
-        TryParse(frame, out var msg)
-            ? Right<NordError, NordMessage>(msg)
-            : Left<NordError, NordMessage>(new NordError.ParseFailed("Malformed frame: unexpected length or truncation."));
-
     public static bool TryParse(ReadOnlyMemory<byte> frame, out NordMessage message)
     {
         message = default;
@@ -24,8 +15,8 @@ public static class MessageParser
         if (length < MessageBuilder.HeaderSize + MessageBuilder.CrcSize || length > span.Length) return false;
 
         var command = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
-        var param1 = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
-        var param2 = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
+        var param1  = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
+        var param2  = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
         var payloadLength = (int)length - MessageBuilder.HeaderSize - MessageBuilder.CrcSize;
         var payload = frame.Slice(MessageBuilder.HeaderSize, payloadLength);
         var crc = BinaryPrimitives.ReadUInt16BigEndian(span.Slice((int)length - 2, 2));
@@ -42,10 +33,8 @@ public static class MessageParser
     }
 
     /// <summary>
-    /// Loose length-prefixed ASCII scanner. Matches nord_api.py._parse_string_list:
-    /// scans each byte as a potential length, accepts the following <c>length</c>
-    /// bytes if they form printable ASCII. Works for category-list responses where
-    /// the strict record framing only covers the first entry.
+    /// Loose length-prefixed ASCII scanner. Matches nord_api.py._parse_string_list.
+    /// Works for category-list responses where the strict record framing only covers the first entry.
     /// </summary>
     public static IReadOnlyList<string> ScanLengthPrefixedStrings(ReadOnlyMemory<byte> payload)
     {
@@ -73,8 +62,6 @@ public static class MessageParser
     /// <summary>
     /// Strict record extractor matching interpret_protocol.py:extract_strings —
     /// 5 zero bytes, 4-byte big-endian id, 4-byte big-endian length, ASCII.
-    /// Use this for header-style responses where each record carries an id;
-    /// for category lists, prefer <see cref="ScanLengthPrefixedStrings"/>.
     /// </summary>
     public static IReadOnlyList<StringRecord> ExtractStrings(ReadOnlyMemory<byte> payload)
     {
@@ -85,7 +72,7 @@ public static class MessageParser
         {
             if (span[i] == 0 && span[i + 1] == 0 && span[i + 2] == 0 && span[i + 3] == 0 && span[i + 4] == 0)
             {
-                var id = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(i + 5, 4));
+                var id  = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(i + 5, 4));
                 var len = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(i + 9, 4));
                 if (len > 0 && len < 256 && i + 13 + len <= span.Length)
                 {
@@ -105,46 +92,37 @@ public static class MessageParser
 
     /// <summary>
     /// Decode a p2=0x29 (ItemDetailData) payload into a ProgramDetail.
-    /// Confirmed layout from RE of detection+readlibrary new version.pcapng:
-    ///   [8..11]  item_id (uint32 BE)
-    ///   [16]     is_occupied byte (1 = slot has a program)
-    ///   [32]     name_length byte
-    ///   [33..]   ASCII program name (name_length bytes, no null terminator)
-    /// Returns None when the payload is too short or the slot is empty.
+    /// Returns null when the payload is too short or nameLen is zero.
+    /// Note: IsOccupied=false is a valid result; callers filter by it.
     /// </summary>
-    public static Option<ProgramDetail> ParseProgramDetail(ReadOnlyMemory<byte> payload)
+    public static ProgramDetail? ParseProgramDetail(ReadOnlyMemory<byte> payload)
     {
         var span = payload.Span;
-        if (span.Length < 34) return None;
+        if (span.Length < 34) return null;
 
-        var bankId = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
-        var itemId = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
+        var bankId     = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
+        var itemId     = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
         var isOccupied = span[16] != 0;
-        var nameLen = span[32];
-        if (nameLen == 0 || 33 + nameLen > span.Length) return None;
+        var nameLen    = span[32];
+        if (nameLen == 0 || 33 + nameLen > span.Length) return null;
 
         var name = Encoding.ASCII.GetString(span.Slice(33, nameLen));
-        return Some(new ProgramDetail(bankId, itemId, name, isOccupied));
+        return new ProgramDetail(bankId, itemId, name, isOccupied);
     }
 
     /// <summary>
     /// Decode a p2=0x21 (IteratorState) payload.
-    /// Layout: [0..3] counter (uint32 BE), [4..7] bank (uint32 BE), [8..11] next_item (uint32 BE).
-    /// counter=0 → more items at next_item; counter=1 → end of this bank.
+    /// Returns null when the payload is too short.
     /// </summary>
-    public static Option<IteratorStateData> ParseIteratorState(ReadOnlyMemory<byte> payload)
+    public static IteratorStateData? ParseIteratorState(ReadOnlyMemory<byte> payload)
     {
         var span = payload.Span;
-        if (span.Length < 12) return None;
+        if (span.Length < 12) return null;
         var counter = BinaryPrimitives.ReadUInt32BigEndian(span[..4]);
         var bank    = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
         var next    = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
-        return Some(new IteratorStateData(counter, bank, next));
+        return new IteratorStateData(counter, bank, next);
     }
-
-    /// <summary>Functional variant of <see cref="TryParseItemData"/>.</summary>
-    public static Option<ItemData> ParseItemData(ReadOnlyMemory<byte> payload) =>
-        TryParseItemData(payload, out var data) ? Some(data) : None;
 
     public static bool TryParseItemData(ReadOnlyMemory<byte> payload, out ItemData data)
     {
@@ -152,11 +130,11 @@ public static class MessageParser
         var span = payload.Span;
         if (span.Length < 40) return false;
 
-        var fileType = Encoding.ASCII.GetString(span.Slice(16, 4));
-        var versionRaw = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(20, 4));
-        var dataSize = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
+        var fileType      = Encoding.ASCII.GetString(span.Slice(16, 4));
+        var versionRaw    = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(20, 4));
+        var dataSize      = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
         var categoryField = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(28, 4));
-        var nameLen = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(32, 4));
+        var nameLen       = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(32, 4));
         if (nameLen <= 0 || 36 + nameLen > span.Length) return false;
 
         data = new ItemData(
