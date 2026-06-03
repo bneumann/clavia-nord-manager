@@ -104,13 +104,45 @@ public static class MessageParser
     }
 
     /// <summary>
-    /// Decode a Param2=0x1f item-metadata payload (response to QueryItem=0x21).
-    /// Payload layout (all big-endian):
-    ///   [8..12]  echoed index, [12..16] file size,
-    ///   [16..20] file type ASCII ("ns3f","npno","nsmp","ns3y","ns3s"),
-    ///   [20..24] version×100, [28..32] category, [32..36] name length, [36+] name.
+    /// Decode a p2=0x29 (ItemDetailData) payload into a ProgramDetail.
+    /// Confirmed layout from RE of detection+readlibrary new version.pcapng:
+    ///   [8..11]  item_id (uint32 BE)
+    ///   [16]     is_occupied byte (1 = slot has a program)
+    ///   [32]     name_length byte
+    ///   [33..]   ASCII program name (name_length bytes, no null terminator)
+    /// Returns None when the payload is too short or the slot is empty.
     /// </summary>
-    /// <summary>Functional variant of <see cref="TryParseItemData"/> — returns None on malformed payloads.</summary>
+    public static Option<ProgramDetail> ParseProgramDetail(ReadOnlyMemory<byte> payload)
+    {
+        var span = payload.Span;
+        if (span.Length < 34) return None;
+
+        var bankId = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
+        var itemId = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
+        var isOccupied = span[16] != 0;
+        var nameLen = span[32];
+        if (nameLen == 0 || 33 + nameLen > span.Length) return None;
+
+        var name = Encoding.ASCII.GetString(span.Slice(33, nameLen));
+        return Some(new ProgramDetail(bankId, itemId, name, isOccupied));
+    }
+
+    /// <summary>
+    /// Decode a p2=0x21 (IteratorState) payload.
+    /// Layout: [0..3] counter (uint32 BE), [4..7] bank (uint32 BE), [8..11] next_item (uint32 BE).
+    /// counter=0 → more items at next_item; counter=1 → end of this bank.
+    /// </summary>
+    public static Option<IteratorStateData> ParseIteratorState(ReadOnlyMemory<byte> payload)
+    {
+        var span = payload.Span;
+        if (span.Length < 12) return None;
+        var counter = BinaryPrimitives.ReadUInt32BigEndian(span[..4]);
+        var bank    = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4));
+        var next    = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8, 4));
+        return Some(new IteratorStateData(counter, bank, next));
+    }
+
+    /// <summary>Functional variant of <see cref="TryParseItemData"/>.</summary>
     public static Option<ItemData> ParseItemData(ReadOnlyMemory<byte> payload) =>
         TryParseItemData(payload, out var data) ? Some(data) : None;
 
@@ -135,18 +167,6 @@ public static class MessageParser
         return true;
     }
 
-    /// <summary>
-    /// Returns true when the message is the end-of-container sentinel for item queries.
-    /// Param2=0x20 with 0xFFFFFFFF at payload[4..8].
-    /// </summary>
-    public static bool IsEndMarker(NordMessage msg)
-    {
-        if (msg.Param2 != NordCommands.ItemResponseEndMarker) return false;
-        var span = msg.Payload.Span;
-        return span.Length >= 8
-            && BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4)) == 0xFFFF_FFFFu;
-    }
-
     private static bool IsPrintableAscii(ReadOnlySpan<byte> bytes)
     {
         foreach (var b in bytes)
@@ -157,7 +177,7 @@ public static class MessageParser
 
 public readonly record struct StringRecord(int Offset, uint Id, string Value);
 
-/// <summary>Decoded item metadata from a Param2=0x1f response.</summary>
+/// <summary>Decoded item metadata from a p2=0x1f (ItemBasicData) response.</summary>
 public readonly record struct ItemData(
     string Name,
     string FileType,
@@ -166,4 +186,14 @@ public readonly record struct ItemData(
     uint CategoryField)
 {
     public string Version => $"{VersionMajor}.{VersionMinor:D2}";
+}
+
+/// <summary>Decoded program detail from a p2=0x29 (ItemDetailData) response.</summary>
+public sealed record ProgramDetail(int BankId, int ItemId, string Name, bool IsOccupied);
+
+/// <summary>Decoded state from a p2=0x21 (IteratorState) device→host response.</summary>
+public readonly record struct IteratorStateData(uint Counter, uint Bank, uint NextItem)
+{
+    /// <summary>True when the device signals end-of-bank (no more items to iterate).</summary>
+    public bool IsEndOfBank => Counter == 1;
 }

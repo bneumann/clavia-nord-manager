@@ -58,6 +58,12 @@ public sealed class DeviceService : IDisposable
     public void Disconnect()
     {
         if (device is not null) device.Disconnected -= OnDeviceDisconnected;
+
+        // Send session-close handshake before releasing USB. Best-effort: cap at 1 s.
+        if (client is not null)
+            try { Task.Run(() => client.DisconnectAsync().ToEither()).Wait(TimeSpan.FromSeconds(1)); }
+            catch { /* ignored */ }
+
         client?.Dispose();
         device?.Dispose();
         client = null;
