@@ -21,6 +21,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool canReload;
     [ObservableProperty] private bool canRename;
     [ObservableProperty] private bool canExport;
+    [ObservableProperty] private bool canDelete;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
@@ -87,6 +88,7 @@ public partial class MainWindowViewModel : ObservableObject
         CanReload  = connected;
         CanRename  = connected && SelectedCategory?.SelectedEntry?.Ref?.ItemType == SoundItemType.Program;
         CanExport  = CanRename;
+        CanDelete  = CanRename;
     }
 
     [RelayCommand]
@@ -227,6 +229,51 @@ public partial class MainWindowViewModel : ObservableObject
                     StatusText = $"Export failed: {err.Message}";
                     return System.Threading.Tasks.Task.CompletedTask;
                 });
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteAsync()
+    {
+        var entry = SelectedCategory?.SelectedEntry;
+        if (entry?.Ref is not { ItemType: SoundItemType.Program } ref_) return;
+        if (deviceService.Client is null) return;
+
+        Avalonia.Controls.Window? owner = null;
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
+            owner = dt.MainWindow;
+        if (owner is null) return;
+
+        var vm = new ConfirmDialogViewModel(
+            title:        "Delete Program",
+            message:      $"Delete '{entry.Name}'? This cannot be undone.",
+            confirmLabel: "Delete");
+        var dialog = new Views.ConfirmDialog { DataContext = vm };
+
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (!confirmed) return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await deviceService.Client
+                .DeleteProgramAsync(ref_.Bank, ref_.Location)
+                .ToEither();
+
+            result.Match(
+                Right: _ =>
+                {
+                    library.ProgramBanks.Remove(entry);
+                    DetailHeader = null;
+                    DetailBody   = null;
+                    StatusText   = $"Deleted: {entry.Name}";
+                },
+                Left: err => StatusText = $"Delete failed: {err.Message}");
         }
         finally
         {

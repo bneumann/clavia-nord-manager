@@ -41,6 +41,10 @@ public static class NordCommands
     public const uint FinishTransfer    = 0x0000000e;  // H→D: [bank, item]
     public const uint FinishTransferAck = 0x0000000f;  // D→H: [0, bank, item]
 
+    // Delete commands (confirmed from Delete Stevie Likes It.pcapng, 2026-06-03).
+    public const uint DeleteRequest  = 0x00000014;  // H→D: [bank, item]
+    public const uint DeleteResponse = 0x00000015;  // D→H: [status, bank, item]
+
     // Rename / write commands (confirmed from Rename N11 pcapng, 2026-06-03).
     public const uint EditItemOpen    = 0x00000033;  // H→D: [bank_id, item_index, new_category_code]
     public const uint EditItemOpenAck = 0x00000034;  // D→H

@@ -485,6 +485,69 @@ public sealed class NordClient : IDisposable
     }
 
     // ----------------------------------------------------------------
+    // Delete — confirmed protocol from Delete Stevie Likes It.pcapng, 2026-06-03.
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Delete a program slot on the device.
+    /// Sequence: LibrarySelect → DeleteRequest → DeleteResponse (check status) → LibraryInfo → CloseIterator.
+    /// </summary>
+    public EitherAsync<NordError, Unit> DeleteProgramAsync(
+        int bankId, int itemIndex, CancellationToken ct = default) =>
+        EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Unit>(async _ =>
+            {
+                var result = await DeleteProgramCoreAsync(bankId, itemIndex, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+
+    private async Task<Either<NordError, Unit>> DeleteProgramCoreAsync(int bankId, int itemIndex, CancellationToken ct)
+    {
+        var libPayload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(libPayload, NordCommands.ProgramLibraryId);
+
+        var itemPayload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(0, 4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(4, 4), (uint)itemIndex);
+
+        // 1. LibrarySelect
+        var selResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (selResult.IsLeft) return selResult.Map(_ => unit);
+
+        // 2. DeleteRequest → DeleteResponse
+        var delResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.DeleteRequest, itemPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (delResult.IsLeft) return delResult.Map(_ => unit);
+
+        Either<NordError, Unit> statusError = Right<NordError, Unit>(unit);
+        delResult.IfRight(raw =>
+        {
+            if (!MessageParser.TryParse(raw, out var msg) ||
+                !MessageParser.ParseDeleteResponse(msg.Payload.Span, out var status))
+            {
+                statusError = Left<NordError, Unit>(new NordError.ParseFailed("Failed to parse DeleteResponse"));
+                return;
+            }
+            if (status != 0)
+                statusError = Left<NordError, Unit>(new NordError.ParseFailed($"Delete failed: status=0x{status:x}"));
+        });
+        if (statusError.IsLeft) return statusError;
+
+        // 3. LibraryInfo (best-effort)
+        await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+
+        // 4. CloseIterator (best-effort)
+        await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
+
+        return Right<NordError, Unit>(unit);
+    }
+
+    // ----------------------------------------------------------------
     // Rename — confirmed protocol from pcapng RE, 2026-06-03.
     // ----------------------------------------------------------------
 

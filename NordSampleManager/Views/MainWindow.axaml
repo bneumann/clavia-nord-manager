@@ -20,6 +20,9 @@
         <Button Content="Export…"
                 Command="{Binding ExportCommand}"
                 IsEnabled="{Binding CanExport}"/>
+        <Button Content="Delete…"
+                Command="{Binding DeleteCommand}"
+                IsEnabled="{Binding CanDelete}"/>
         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
         <ProgressBar IsIndeterminate="True" Width="120"
                      IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>
