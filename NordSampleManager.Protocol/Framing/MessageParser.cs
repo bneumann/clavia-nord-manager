@@ -181,6 +181,18 @@ public static class MessageParser
         return true;
     }
 
+    /// <summary>
+    /// Parse a p2=0x1b (SwapResponse) payload: first uint32 BE is the status code.
+    /// Returns false when the payload is too short. status=0 means success.
+    /// </summary>
+    public static bool ParseSwapResponse(ReadOnlySpan<byte> payload, out uint status)
+    {
+        status = 0;
+        if (payload.Length < 4) return false;
+        status = BinaryPrimitives.ReadUInt32BigEndian(payload[..4]);
+        return true;
+    }
+
     private static bool IsPrintableAscii(ReadOnlySpan<byte> bytes)
     {
         foreach (var b in bytes)

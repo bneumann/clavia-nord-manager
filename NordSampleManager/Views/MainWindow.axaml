@@ -57,13 +57,25 @@
                    Text="{Binding SelectedCategory.FilterText}"
                    IsEnabled="{Binding SelectedCategory, Converter={x:Static ObjectConverters.IsNotNull}}"/>
           <DataGrid Grid.Row="1"
+                    Name="ProgramsGrid"
                     ItemsSource="{Binding SelectedCategory.FilteredEntries}"
                     SelectedItem="{Binding SelectedCategory.SelectedEntry}"
                     IsReadOnly="True"
                     GridLinesVisibility="Horizontal"
                     HeadersVisibility="Column"
-                    AutoGenerateColumns="False">
+                    AutoGenerateColumns="False"
+                    DragDrop.AllowDrop="True">
             <DataGrid.Columns>
+              <DataGridTemplateColumn Width="28" Header="">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="⠿" FontSize="14"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Cursor="SizeAll"
+                               PointerPressed="OnGripPointerPressed"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
               <DataGridTextColumn Header="#"    Binding="{Binding Index}" Width="60"/>
               <DataGridTextColumn Header="Kind" Binding="{Binding Kind}"  Width="180"/>
               <DataGridTextColumn Header="Name" Binding="{Binding Name}"  Width="*"/>

@@ -51,6 +51,10 @@ public static class NordCommands
     public const uint DeleteRequest  = 0x00000014;  // H→D: [bank, item]
     public const uint DeleteResponse = 0x00000015;  // D→H: [status, bank, item]
 
+    // Swap commands (confirmed from Swap Bank N22 with N21.pcapng, 2026-06-03).
+    public const uint SwapRequest  = 0x0000001a;  // H→D: [bank1, item1, bank2, item2]
+    public const uint SwapResponse = 0x0000001b;  // D→H: [status]
+
     // Rename / write commands (confirmed from Rename N11 pcapng, 2026-06-03).
     public const uint EditItemOpen    = 0x00000033;  // H→D: [bank_id, item_index, new_category_code]
     public const uint EditItemOpenAck = 0x00000034;  // D→H

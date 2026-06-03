@@ -363,6 +363,65 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    public async Task SwapAsync(BankEntry source, BankEntry target)
+    {
+        if (source.Ref is not { ItemType: SoundItemType.Program } src) return;
+        if (target.Ref is not { ItemType: SoundItemType.Program } tgt) return;
+        if (deviceService.Client is null) return;
+
+        Avalonia.Controls.Window? owner = null;
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
+            owner = dt.MainWindow;
+        if (owner is null) return;
+
+        var vm = new ConfirmDialogViewModel(
+            "Swap Programs",
+            $"Swap '{source.Name}' ↔ '{target.Name}'?",
+            "Swap");
+        var dialog = new Views.ConfirmDialog { DataContext = vm };
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (!confirmed) return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await deviceService.Client
+                .SwapProgramsAsync(src.Bank, src.Location, tgt.Bank, tgt.Location)
+                .ToEither();
+
+            result.Match(
+                Right: _ =>
+                {
+                    var idx1 = library.ProgramBanks.IndexOf(source);
+                    var idx2 = library.ProgramBanks.IndexOf(target);
+                    if (idx1 >= 0 && idx2 >= 0)
+                    {
+                        library.ProgramBanks[idx1] = source with
+                        {
+                            Name         = target.Name,
+                            CategoryCode = target.CategoryCode,
+                            CategoryName = target.CategoryName,
+                            Detail       = target.Detail,
+                        };
+                        library.ProgramBanks[idx2] = target with
+                        {
+                            Name         = source.Name,
+                            CategoryCode = source.CategoryCode,
+                            CategoryName = source.CategoryName,
+                            Detail       = source.Detail,
+                        };
+                    }
+                    StatusText = $"Swapped: {source.Name} ↔ {target.Name}";
+                },
+                Left: err => StatusText = $"Swap failed: {err.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private async Task LoadLibraryAsync()
     {
         var loadResult = await library.LoadAsync(deviceService.Client!);

@@ -633,6 +633,72 @@ public sealed class NordClient : IDisposable
     }
 
     // ----------------------------------------------------------------
+    // Swap — confirmed protocol from Swap Bank N22 with N21.pcapng, 2026-06-03.
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Swap two program slots on the device.
+    /// Sequence: LibrarySelect → SwapRequest → SwapResponse (check status) → LibraryInfo → CloseIterator.
+    /// </summary>
+    public EitherAsync<NordError, Unit> SwapProgramsAsync(
+        int bank1, int item1, int bank2, int item2, CancellationToken ct = default) =>
+        EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Unit>(async _ =>
+            {
+                var result = await SwapProgramsCoreAsync(bank1, item1, bank2, item2, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+
+    private async Task<Either<NordError, Unit>> SwapProgramsCoreAsync(
+        int bank1, int item1, int bank2, int item2, CancellationToken ct)
+    {
+        var libPayload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(libPayload, NordCommands.ProgramLibraryId);
+
+        var swapPayload = new byte[16];
+        BinaryPrimitives.WriteUInt32BigEndian(swapPayload.AsSpan(0,  4), (uint)bank1);
+        BinaryPrimitives.WriteUInt32BigEndian(swapPayload.AsSpan(4,  4), (uint)item1);
+        BinaryPrimitives.WriteUInt32BigEndian(swapPayload.AsSpan(8,  4), (uint)bank2);
+        BinaryPrimitives.WriteUInt32BigEndian(swapPayload.AsSpan(12, 4), (uint)item2);
+
+        // 1. LibrarySelect
+        var selResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (selResult.IsLeft) return selResult.Map(_ => unit);
+
+        // 2. SwapRequest → SwapResponse
+        var swapResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.SwapRequest, swapPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (swapResult.IsLeft) return swapResult.Map(_ => unit);
+
+        Either<NordError, Unit> statusError = Right<NordError, Unit>(unit);
+        swapResult.IfRight(raw =>
+        {
+            if (!MessageParser.TryParse(raw, out var msg) ||
+                !MessageParser.ParseSwapResponse(msg.Payload.Span, out var status))
+            {
+                statusError = Left<NordError, Unit>(new NordError.ParseFailed("Failed to parse SwapResponse"));
+                return;
+            }
+            if (status != 0)
+                statusError = Left<NordError, Unit>(new NordError.ParseFailed($"Swap failed: status=0x{status:x}"));
+        });
+        if (statusError.IsLeft) return statusError;
+
+        // 3. LibraryInfo (best-effort)
+        await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+
+        // 4. CloseIterator (best-effort)
+        await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
+
+        return Right<NordError, Unit>(unit);
+    }
+
+    // ----------------------------------------------------------------
     // Rename — confirmed protocol from pcapng RE, 2026-06-03.
     // ----------------------------------------------------------------
 
