@@ -105,12 +105,7 @@ public sealed class NordClient : IDisposable
     /// Returns Left on transport error; empty list if no programs found.
     /// </summary>
     public EitherAsync<NordError, IReadOnlyList<ProgramInfo>> QueryAllProgramsAsync(CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<IReadOnlyList<ProgramInfo>>(async _ =>
-            {
-                var result = await QueryAllProgramsCoreAsync(ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
+        QueryAllProgramsCoreAsync(ct).ToAsync();
 
     private async Task<Either<NordError, IReadOnlyList<ProgramInfo>>> QueryAllProgramsCoreAsync(CancellationToken ct)
     {
@@ -362,12 +357,7 @@ public sealed class NordClient : IDisposable
     /// </summary>
     public EitherAsync<NordError, byte[]> DownloadProgramAsync(
         int bankId, int itemIndex, CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<byte[]>(async _ =>
-            {
-                var result = await DownloadProgramCoreAsync(bankId, itemIndex, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
+        DownloadProgramCoreAsync(bankId, itemIndex, ct).ToAsync();
 
     private async Task<Either<NordError, byte[]>> DownloadProgramCoreAsync(
         int bankId, int itemIndex, CancellationToken ct)
@@ -495,13 +485,7 @@ public sealed class NordClient : IDisposable
     public EitherAsync<NordError, Unit> UploadProgramAsync(
         int bankId, int itemIndex, string name, string fileType,
         byte[] rawData, uint categoryCode = 0, CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                var result = await UploadProgramCoreAsync(bankId, itemIndex, name, fileType, rawData, categoryCode, ct)
-                    .ConfigureAwait(false);
-                return result.ToAsync();
-            });
+        UploadProgramCoreAsync(bankId, itemIndex, name, fileType, rawData, categoryCode, ct).ToAsync();
 
     private async Task<Either<NordError, Unit>> UploadProgramCoreAsync(
         int bankId, int itemIndex, string name, string fileType,
@@ -579,12 +563,7 @@ public sealed class NordClient : IDisposable
     /// </summary>
     public EitherAsync<NordError, Unit> DeleteProgramAsync(
         int bankId, int itemIndex, CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                var result = await DeleteProgramCoreAsync(bankId, itemIndex, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
+        DeleteProgramCoreAsync(bankId, itemIndex, ct).ToAsync();
 
     private async Task<Either<NordError, Unit>> DeleteProgramCoreAsync(int bankId, int itemIndex, CancellationToken ct)
     {
@@ -601,25 +580,12 @@ public sealed class NordClient : IDisposable
             .ToEither().ConfigureAwait(false);
         if (selResult.IsLeft) return selResult.Map(_ => unit);
 
-        // 2. DeleteRequest → DeleteResponse
-        var delResult = await SendAndReceiveAsync(
+        // 2. DeleteRequest → DeleteResponse (status=0 means success)
+        var delCheck = (await SendAndReceiveAsync(
             NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.DeleteRequest, itemPayload, ct)
-            .ToEither().ConfigureAwait(false);
-        if (delResult.IsLeft) return delResult.Map(_ => unit);
-
-        Either<NordError, Unit> statusError = Right<NordError, Unit>(unit);
-        delResult.IfRight(raw =>
-        {
-            if (!MessageParser.TryParse(raw, out var msg) ||
-                !MessageParser.ParseDeleteResponse(msg.Payload.Span, out var status))
-            {
-                statusError = Left<NordError, Unit>(new NordError.ParseFailed("Failed to parse DeleteResponse"));
-                return;
-            }
-            if (status != 0)
-                statusError = Left<NordError, Unit>(new NordError.ParseFailed($"Delete failed: status=0x{status:x}"));
-        });
-        if (statusError.IsLeft) return statusError;
+            .ToEither().ConfigureAwait(false))
+            .Bind(raw => CheckStatusResponse(raw, "Delete"));
+        if (delCheck.IsLeft) return delCheck;
 
         // 3. LibraryInfo (best-effort)
         await SendAndReceiveAsync(
@@ -642,12 +608,7 @@ public sealed class NordClient : IDisposable
     /// </summary>
     public EitherAsync<NordError, Unit> SwapProgramsAsync(
         int bank1, int item1, int bank2, int item2, CancellationToken ct = default) =>
-        EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                var result = await SwapProgramsCoreAsync(bank1, item1, bank2, item2, ct).ConfigureAwait(false);
-                return result.ToAsync();
-            });
+        SwapProgramsCoreAsync(bank1, item1, bank2, item2, ct).ToAsync();
 
     private async Task<Either<NordError, Unit>> SwapProgramsCoreAsync(
         int bank1, int item1, int bank2, int item2, CancellationToken ct)
@@ -667,25 +628,12 @@ public sealed class NordClient : IDisposable
             .ToEither().ConfigureAwait(false);
         if (selResult.IsLeft) return selResult.Map(_ => unit);
 
-        // 2. SwapRequest → SwapResponse
-        var swapResult = await SendAndReceiveAsync(
+        // 2. SwapRequest → SwapResponse (status=0 means success)
+        var swapCheck = (await SendAndReceiveAsync(
             NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.SwapRequest, swapPayload, ct)
-            .ToEither().ConfigureAwait(false);
-        if (swapResult.IsLeft) return swapResult.Map(_ => unit);
-
-        Either<NordError, Unit> statusError = Right<NordError, Unit>(unit);
-        swapResult.IfRight(raw =>
-        {
-            if (!MessageParser.TryParse(raw, out var msg) ||
-                !MessageParser.ParseSwapResponse(msg.Payload.Span, out var status))
-            {
-                statusError = Left<NordError, Unit>(new NordError.ParseFailed("Failed to parse SwapResponse"));
-                return;
-            }
-            if (status != 0)
-                statusError = Left<NordError, Unit>(new NordError.ParseFailed($"Swap failed: status=0x{status:x}"));
-        });
-        if (statusError.IsLeft) return statusError;
+            .ToEither().ConfigureAwait(false))
+            .Bind(raw => CheckStatusResponse(raw, "Swap"));
+        if (swapCheck.IsLeft) return swapCheck;
 
         // 3. LibraryInfo (best-effort)
         await SendAndReceiveAsync(
@@ -810,31 +758,43 @@ public sealed class NordClient : IDisposable
 
     // ----------------------------------------------------------------
     // Transport helpers — semaphore-serialized send + receive.
-    // The gate is managed inside BindAsync so release is guaranteed.
     // ----------------------------------------------------------------
 
     private EitherAsync<NordError, ReadOnlyMemory<byte>> SendAndReceiveAsync(
+        uint cmd, uint param1, uint param2, ReadOnlyMemory<byte> payload, CancellationToken ct) =>
+        SendAndReceiveCoreAsync(cmd, param1, param2, payload, ct).ToAsync();
+
+    private async Task<Either<NordError, ReadOnlyMemory<byte>>> SendAndReceiveCoreAsync(
         uint cmd, uint param1, uint param2, ReadOnlyMemory<byte> payload, CancellationToken ct)
     {
         var frame = MessageBuilder.Build(cmd, param1, param2, payload.Span);
-        return EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<ReadOnlyMemory<byte>>(async _ =>
-            {
-                await gate.WaitAsync(ct).ConfigureAwait(false);
-                try
-                {
-                    var result = await (
-                        from _send in device.SendAsync(frame, ct)
-                        from reply in device.ReceiveAsync(MaxResponseBytes, ct)
-                        select reply
-                    ).ToEither().ConfigureAwait(false);
-                    return result.ToAsync();
-                }
-                finally
-                {
-                    gate.Release();
-                }
-            });
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            return await (
+                from _send in device.SendAsync(frame, ct)
+                from reply in device.ReceiveAsync(MaxResponseBytes, ct)
+                select reply
+            ).ToEither().ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Parse a raw frame and verify its status word (first uint32 BE of payload) is zero.
+    /// Returns Right(unit) on success; Left with a descriptive message on parse failure or non-zero status.
+    /// </summary>
+    private static Either<NordError, Unit> CheckStatusResponse(ReadOnlyMemory<byte> raw, string operation)
+    {
+        if (!MessageParser.TryParse(raw, out var msg) ||
+            !MessageParser.ParseStatusResponse(msg.Payload.Span, out var status))
+            return Left<NordError, Unit>(new NordError.ParseFailed($"Failed to parse {operation} response"));
+        return status != 0
+            ? Left<NordError, Unit>(new NordError.ParseFailed($"{operation} failed: status=0x{status:x}"))
+            : Right<NordError, Unit>(unit);
     }
 
     /// <summary>
@@ -842,27 +802,25 @@ public sealed class NordClient : IDisposable
     /// Should be called before <see cref="Dispose"/>. Best-effort — callers should Dispose
     /// even if this returns Left.
     /// </summary>
-    public EitherAsync<NordError, Unit> DisconnectAsync(CancellationToken ct = default)
+    public EitherAsync<NordError, Unit> DisconnectAsync(CancellationToken ct = default) =>
+        DisconnectCoreAsync(ct).ToAsync();
+
+    private async Task<Either<NordError, Unit>> DisconnectCoreAsync(CancellationToken ct)
     {
         var frame = MessageBuilder.Build(NordCommands.CmdStatus, param1: 1, param2: 2, payload: []);
-        return EitherAsync<NordError, Unit>.Right(unit)
-            .BindAsync<Unit>(async _ =>
-            {
-                await gate.WaitAsync(ct).ConfigureAwait(false);
-                try
-                {
-                    var result = await (
-                        from _send in device.SendAsync(frame, ct)
-                        from _ack  in device.ReceiveAsync(MaxResponseBytes, ct)
-                        select unit
-                    ).ToEither().ConfigureAwait(false);
-                    return result.ToAsync();
-                }
-                finally
-                {
-                    gate.Release();
-                }
-            });
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            return await (
+                from _send in device.SendAsync(frame, ct)
+                from _ack  in device.ReceiveAsync(MaxResponseBytes, ct)
+                select unit
+            ).ToEither().ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     public void Dispose()

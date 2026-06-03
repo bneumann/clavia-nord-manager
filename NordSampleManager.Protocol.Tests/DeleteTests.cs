@@ -33,7 +33,7 @@ public class DeleteTests
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), 12u);  // bank
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8, 4), 17u);  // item
 
-        Assert.True(MessageParser.ParseDeleteResponse(payload, out var status));
+        Assert.True(MessageParser.ParseStatusResponse(payload, out var status));
         Assert.Equal(0u, status);
     }
 
@@ -43,15 +43,15 @@ public class DeleteTests
         var payload = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), 0x01u);  // non-zero status
 
-        Assert.True(MessageParser.ParseDeleteResponse(payload, out var status));
+        Assert.True(MessageParser.ParseStatusResponse(payload, out var status));
         Assert.NotEqual(0u, status);
     }
 
     [Fact]
     public void DeleteResponse_TooShort_ReturnsFalse()
     {
-        Assert.False(MessageParser.ParseDeleteResponse(new byte[3], out _));
-        Assert.False(MessageParser.ParseDeleteResponse([], out _));
+        Assert.False(MessageParser.ParseStatusResponse(new byte[3], out _));
+        Assert.False(MessageParser.ParseStatusResponse([], out _));
     }
 
     [Fact]

@@ -36,7 +36,7 @@ public class SwapTests
         var payload = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), 0u);
 
-        Assert.True(MessageParser.ParseSwapResponse(payload, out var status));
+        Assert.True(MessageParser.ParseStatusResponse(payload, out var status));
         Assert.Equal(0u, status);
     }
 
@@ -46,15 +46,15 @@ public class SwapTests
         var payload = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), 1u);
 
-        Assert.True(MessageParser.ParseSwapResponse(payload, out var status));
+        Assert.True(MessageParser.ParseStatusResponse(payload, out var status));
         Assert.Equal(1u, status);
     }
 
     [Fact]
     public void SwapResponse_TooShort_ReturnsFalse()
     {
-        Assert.False(MessageParser.ParseSwapResponse(new byte[3], out _));
-        Assert.False(MessageParser.ParseSwapResponse([], out _));
+        Assert.False(MessageParser.ParseStatusResponse(new byte[3], out _));
+        Assert.False(MessageParser.ParseStatusResponse([], out _));
     }
 
     [Fact]
