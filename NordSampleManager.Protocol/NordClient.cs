@@ -57,6 +57,9 @@ public sealed class NordClient : IDisposable
     public EitherAsync<NordError, IReadOnlyList<string>> QueryPianoCategoriesAsync(CancellationToken ct = default)
         => ListQueryAsync(NordCommands.ListPianoCategories, ct);
 
+    public EitherAsync<NordError, IReadOnlyList<string>> QueryPianoNamesAsync(CancellationToken ct = default)
+        => ListQueryAsync(NordCommands.PianoLibraryId, ct);
+    
     public EitherAsync<NordError, IReadOnlyList<string>> QueryBank1Async(CancellationToken ct = default)
         => ListQueryAsync(NordCommands.ListBank1, ct);
 
@@ -145,15 +148,14 @@ public sealed class NordClient : IDisposable
 
             bankIndex++;
 
-            // Heuristic: if the device starts returning bank IDs from 0 again, we've wrapped.
-            if (bankIndex > 0 && state.Bank < bankIndex - 1)
+            switch (bankIndex)
             {
-                allDone = true;
-            }
-            else if (bankIndex >= 16)
-            {
+                // Heuristic: if the device starts returning bank IDs from 0 again, we've wrapped.
+                case > 0 when state.Bank < bankIndex - 1:
                 // Programs A–P = 16 banks max.
-                allDone = true;
+                case >= 16:
+                    allDone = true;
+                    break;
             }
         }
 
@@ -161,6 +163,17 @@ public sealed class NordClient : IDisposable
         await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
 
         return Right<NordError, IReadOnlyList<ProgramInfo>>(results);
+    }
+
+    public EitherAsync<NordError, IReadOnlyList<Piano>> QueryAllPianoNamesAsync(CancellationToken ct = default) => 
+        QueryAllPianoNamesCoreAsync(ct).ToAsync();
+
+    private async Task<Either<NordError, IReadOnlyList<Piano>>> QueryAllPianoNamesCoreAsync(CancellationToken ct)
+    {
+        var setupResult = await SetupLibraryIteratorAsync(NordCommands.PianoLibraryId, ct).ToEither().ConfigureAwait(false);
+        if (setupResult.IsLeft) return setupResult.Map(_ => (IReadOnlyList<Piano>)System.Array.Empty<Piano>());
+        
+        return Either<NordError, IReadOnlyList<Piano>>.Left(new NordError.NotImplemented("Piano library not implemented"));
     }
 
     private EitherAsync<NordError, Unit> SetupLibraryIteratorAsync(uint libraryId, CancellationToken ct)

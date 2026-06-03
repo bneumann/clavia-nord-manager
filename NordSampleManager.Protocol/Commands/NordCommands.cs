@@ -31,6 +31,7 @@ public static class NordCommands
     public const uint CloseIterator     = 0x00000006;  // H→D: empty payload; ends the iterator session
     public const uint CloseIteratorAck  = 0x00000007;  // D→H
     public const uint ProgramLibraryId  = 0x00000007;  // library_id that selects Programs A-P (ns3f)
+    public const uint PianoLibraryId    = 0x00000001;  // library_id that selects Pianos (npno); banks = categories
 
     // Payload selectors for the "list banks" query (Param2 = 0x02).
     public const uint ListPianoCategories = 0x00000001;
