@@ -15,9 +15,13 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private CategoryViewModel? selectedCategory;
     [ObservableProperty] private string statusText = "Disconnected";
     [ObservableProperty] private bool canConnect = true;
+    [ObservableProperty] private bool canReload;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
+
+    // Re-evaluate button states whenever busy flag changes.
+    partial void OnIsBusyChanged(bool _) => UpdateStatus();
 
     public MainWindowViewModel(DeviceService deviceService, SoundLibrary library)
     {
@@ -72,7 +76,8 @@ public partial class MainWindowViewModel : ObservableObject
             ConnectionState.Failed       => $"Connection failed: {deviceService.LastError}",
             _ => "Unknown",
         };
-        CanConnect = deviceService.State is ConnectionState.Disconnected or ConnectionState.Failed;
+        CanConnect = !IsBusy && deviceService.State is ConnectionState.Disconnected or ConnectionState.Failed;
+        CanReload  = !IsBusy && deviceService.State == ConnectionState.Connected;
     }
 
     [RelayCommand]
@@ -83,16 +88,34 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await deviceService.ConnectAsync();
             if (deviceService.State != ConnectionState.Connected || deviceService.Client is null) return;
-
-            var loadResult = await library.LoadAsync(deviceService.Client);
-            loadResult.IfLeft(err => StatusText = $"Load error: {err.Message}");
-
-            SelectedCategory ??= Categories[0];
-            if (loadResult.IsRight) UpdateStatus();
+            await LoadLibraryAsync();
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task ReloadAsync()
+    {
+        if (deviceService.Client is null) return;
+        IsBusy = true;
+        try
+        {
+            await LoadLibraryAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadLibraryAsync()
+    {
+        var loadResult = await library.LoadAsync(deviceService.Client!);
+        loadResult.IfLeft(err => StatusText = $"Load error: {err.Message}");
+        SelectedCategory ??= Categories[0];
+        if (loadResult.IsRight) UpdateStatus();
     }
 }

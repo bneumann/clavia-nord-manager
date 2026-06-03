@@ -40,30 +40,26 @@ public sealed class SoundLibrary
 
         // Critical queries — all confirmed working. Failure here returns Left.
         var listsResult = await (
-            from pianos in client.QueryPianoCategoriesAsync(ct)
-            from pianoNames in client.QueryPianoNamesAsync(ct)
-            from banks in client.QueryBanksAtoPAsync(ct)
-            from samp in client.QuerySampLibAsync(ct)
-            from songs in client.QueryBanks1to8V1Async(ct)
+            from banks  in client.QueryBanksAtoPAsync(ct)
+            from samp   in client.QuerySampLibAsync(ct)
+            from songs  in client.QueryBanks1to8V1Async(ct)
             from synths in client.QueryBanks1to8V2Async(ct)
-            select (pianos, pianoNames, banks, samp, songs, synths)
+            select (banks, samp, songs, synths)
         ).ToEither();
 
         if (listsResult.IsLeft) return listsResult.Map(_ => unit);
 
         listsResult.IfRight(t =>
         {
-            FillFromStrings(PianoCategories, "Piano category", t.pianos);
-            FillFromStrings(ProgramBanks, "Program bank", t.banks); // initial bank names
-            FillFromStrings(SampLibBanks, "Samp Lib", t.samp);
-            FillFromStrings(SongBanks, "Song bank", t.songs);
-            FillFromStrings(SynthBanks, "Synth bank", t.synths);
+            FillFromStrings(ProgramBanks, "Program bank", t.banks);
+            FillFromStrings(SampLibBanks, "Samp Lib",     t.samp);
+            FillFromStrings(SongBanks,    "Song bank",    t.songs);
+            FillFromStrings(SynthBanks,   "Synth bank",   t.synths);
         });
 
-        // Best-effort: replace bank names with rich per-item metadata if the device supports it.
-        // Falls back silently to bank names already in ProgramBanks if the query fails.
-        var programsResult = await client.QueryAllProgramsAsync(ct);
-        var programQueryResult = programsResult.Map(programs =>
+        // Best-effort: replace bank-name placeholders with rich per-item data.
+        var programsResult = await client.QueryAllProgramsAsync(ct).ToEither();
+        programsResult.IfRight(programs =>
         {
             ProgramBanks.Clear();
             foreach (var p in programs)
@@ -73,23 +69,23 @@ public sealed class SoundLibrary
                     entry = entry with { Detail = $"Piano A: {p.PianoA}" };
                 ProgramBanks.Add(entry);
             }
-            return Unit.Default;
         });
-        
-        var pianoNamesResult = await client.QueryAllPianoNamesAsync(ct);
-        var pianoNameQueryResult = pianoNamesResult.Map(pianoName =>
+
+        var pianosResult = await client.QueryAllPianoNamesAsync(ct).ToEither();
+        pianosResult.IfRight(pianos =>
+        {
+            PianoCategories.Clear();
+            foreach (var p in pianos)
             {
-                PianoCategories.Clear();
-                foreach (var p in pianoName)
+                var entry = new BankEntry(p.Category, p.Location + 1, p.Name)
                 {
-                    var entry = new BankEntry($"Bank {p.Category} · {p.Location:D2}", p.Location + 1, p.Name);
-                    if (p.Version is not null)
-                        entry = entry with { Detail = $"Piano A: {p.Version}" };
-                    PianoCategories.Add(entry);
-                }
-                return Unit.Default;
-            });
-        return programQueryResult.Bind(_ => pianoNameQueryResult);
+                    Detail = $"Version: {p.Version}"
+                };
+                PianoCategories.Add(entry);
+            }
+        });
+
+        return unit;
     }
 
     private static void FillFromStrings(ObservableCollection<BankEntry> target, string label,

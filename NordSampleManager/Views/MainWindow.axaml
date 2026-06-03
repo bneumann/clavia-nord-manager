@@ -11,6 +11,9 @@
         <Button Content="Connect &amp; load"
                 Command="{Binding ConnectAndLoadCommand}"
                 IsEnabled="{Binding CanConnect}"/>
+        <Button Content="Reload"
+                Command="{Binding ReloadCommand}"
+                IsEnabled="{Binding CanReload}"/>
         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
         <ProgressBar IsIndeterminate="True" Width="120"
                      IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>

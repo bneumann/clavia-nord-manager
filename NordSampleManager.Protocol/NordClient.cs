@@ -141,7 +141,7 @@ public sealed class NordClient : IDisposable
                 maybeInfo.IfSome(info => results.Add(info));
 
                 // ACK item and get next state.
-                var ackResult = await AckItemAsync(state.NextItem, ct).ToEither().ConfigureAwait(false);
+                var ackResult = await AckItemAsync(state.Bank, state.NextItem, ct).ToEither().ConfigureAwait(false);
                 if (ackResult.IsLeft) return ackResult.Map(_ => (IReadOnlyList<ProgramInfo>)results);
                 ackResult.IfRight(s => state = s);
             }
@@ -170,10 +170,87 @@ public sealed class NordClient : IDisposable
 
     private async Task<Either<NordError, IReadOnlyList<Piano>>> QueryAllPianoNamesCoreAsync(CancellationToken ct)
     {
+        // Fetch category names first so we can label each bank (0=Grand, 1=Upright, …).
+        var catResult = await ListQueryAsync(NordCommands.ListPianoCategories, ct).ToEither().ConfigureAwait(false);
+        if (catResult.IsLeft) return catResult.Map(_ => (IReadOnlyList<Piano>)System.Array.Empty<Piano>());
+        IReadOnlyList<string> categories = new List<string>();
+        catResult.IfRight(c => categories = c);
+
         var setupResult = await SetupLibraryIteratorAsync(NordCommands.PianoLibraryId, ct).ToEither().ConfigureAwait(false);
         if (setupResult.IsLeft) return setupResult.Map(_ => (IReadOnlyList<Piano>)System.Array.Empty<Piano>());
-        
-        return Either<NordError, IReadOnlyList<Piano>>.Left(new NordError.NotImplemented("Piano library not implemented"));
+
+        var results = new List<Piano>();
+        uint bankIndex = 0;
+        bool allDone = false;
+
+        while (!allDone)
+        {
+            var openResult = await OpenBankAsync(bankIndex, ct).ToEither().ConfigureAwait(false);
+            if (openResult.IsLeft) return openResult.Map(_ => (IReadOnlyList<Piano>)results);
+
+            IteratorStateData state = default;
+            openResult.IfRight(s => state = s);
+
+            while (!state.IsEndOfBank)
+            {
+                var itemResult = await FetchPianoItemAsync(state.Bank, state.NextItem, categories, ct).ToEither().ConfigureAwait(false);
+                if (itemResult.IsLeft) return itemResult.Map(_ => (IReadOnlyList<Piano>)results);
+
+                itemResult.IfRight(opt => opt.IfSome(p => results.Add(p)));
+
+                var ackResult = await AckItemAsync(state.Bank, state.NextItem, ct).ToEither().ConfigureAwait(false);
+                if (ackResult.IsLeft) return ackResult.Map(_ => (IReadOnlyList<Piano>)results);
+                ackResult.IfRight(s => state = s);
+            }
+
+            bankIndex++;
+            switch (bankIndex)
+            {
+                case > 0 when state.Bank < bankIndex - 1:
+                case >= 12:
+                    allDone = true;
+                    break;
+            }
+        }
+
+        await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
+        return Right<NordError, IReadOnlyList<Piano>>(results);
+    }
+
+    private EitherAsync<NordError, Option<Piano>> FetchPianoItemAsync(
+        uint bank, uint item, IReadOnlyList<string> categories, CancellationToken ct)
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), bank);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), item);
+
+        var categoryName = (int)bank < categories.Count ? categories[(int)bank] : $"Cat{bank}";
+
+        return EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Option<Piano>>(async _ =>
+            {
+                var basicResult = await SendAndReceiveAsync(
+                    NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.RequestItemBasic, payload, ct)
+                    .ToEither().ConfigureAwait(false);
+                if (basicResult.IsLeft)
+                    return basicResult.Map(_ => Option<Piano>.None).ToAsync();
+
+                Either<NordError, Option<Piano>> decoded = Right<NordError, Option<Piano>>(None);
+                basicResult.IfRight(raw =>
+                {
+                    if (!MessageParser.TryParse(raw, out var msg)) return;
+                    if (!MessageParser.TryParseItemData(msg.Payload, out var data)) return;
+                    decoded = Right<NordError, Option<Piano>>(Some(new Piano(
+                        CategoryIndex: (int)bank,
+                        Category:      categoryName,
+                        Location:      (int)item,
+                        Name:          data.Name,
+                        Version:       $"{data.VersionMajor}.{data.VersionMinor:D2}",
+                        SizeBytes:     0,
+                        RawPayload:    [])));
+                });
+                return decoded.ToAsync();
+            });
     }
 
     private EitherAsync<NordError, Unit> SetupLibraryIteratorAsync(uint libraryId, CancellationToken ct)
@@ -253,10 +330,10 @@ public sealed class NordClient : IDisposable
             });
     }
 
-    private EitherAsync<NordError, IteratorStateData> AckItemAsync(uint lastItem, CancellationToken ct)
+    private EitherAsync<NordError, IteratorStateData> AckItemAsync(uint bank, uint lastItem, CancellationToken ct)
     {
         var payload = new byte[12];
-        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), 0u);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), bank);
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), lastItem);
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8, 4), 0u);
         return
