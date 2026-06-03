@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NordSampleManager.ViewModels"
+        x:Class="NordSampleManager.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1100" Height="720"
+        Title="Nord Sample Manager">
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Padding="12,10" Background="{DynamicResource SystemRegionBrush}">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Content="Connect &amp; load"
+                Command="{Binding ConnectAndLoadCommand}"
+                IsEnabled="{Binding CanConnect}"/>
+        <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
+        <ProgressBar IsIndeterminate="True" Width="120"
+                     IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="200,*,320">
+      <!-- Left rail: category list -->
+      <ListBox Grid.Column="0"
+               Margin="8"
+               ItemsSource="{Binding Categories}"
+               SelectedItem="{Binding SelectedCategory}">
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="vm:CategoryViewModel">
+            <StackPanel Margin="2,4">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.7"/>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- Center: list of entries in selected category -->
+      <Border Grid.Column="1" Margin="0,8" BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1,0">
+        <DataGrid ItemsSource="{Binding SelectedCategory.Entries}"
+                  SelectedItem="{Binding SelectedCategory.SelectedEntry}"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  AutoGenerateColumns="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="#"    Binding="{Binding Index}" Width="60"/>
+            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}"  Width="180"/>
+            <DataGridTextColumn Header="Name" Binding="{Binding Name}"  Width="*"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <!-- Right: detail pane -->
+      <Border Grid.Column="2" Margin="8" Padding="12"
+              BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="4">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <TextBlock Grid.Row="0" Text="Detail" FontWeight="SemiBold" FontSize="13"/>
+          <TextBlock Grid.Row="1" Text="{Binding DetailHeader}" FontSize="16" Margin="0,8,0,4"/>
+          <ScrollViewer Grid.Row="2">
+            <TextBlock Text="{Binding DetailBody}"
+                       TextWrapping="Wrap"
+                       FontFamily="Inter, Cascadia Mono, Consolas, monospace"
+                       FontSize="12"/>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

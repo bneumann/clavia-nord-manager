@@ -1,0 +1,15 @@
+root = true
+
+[*.cs]
+# Private fields and properties should be lower case and not start with an underscore
+dotnet_naming_symbols.private_members.applicable_kinds = field, property
+dotnet_naming_symbols.private_members.applicable_accessibilities = private
+
+dotnet_naming_style.lower_case_no_underscore.capitalization = all_lower
+dotnet_naming_style.lower_case_no_underscore.required_prefix = 
+dotnet_naming_style.lower_case_no_underscore.required_suffix = 
+dotnet_naming_style.lower_case_no_underscore.word_separator = 
+
+dotnet_naming_rule.private_members_lower_case.symbols = private_members
+dotnet_naming_rule.private_members_lower_case.style = lower_case_no_underscore
+dotnet_naming_rule.private_members_lower_case.severity = suggestion

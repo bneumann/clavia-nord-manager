@@ -1,0 +1,10 @@
+# Grant the active console user direct access to the Clavia Nord Stage 3.
+# Without this, libusb-1.0 reports LIBUSB_ERROR_ACCESS when the .NET app
+# (or python nord_api.py) tries to claim the USB interface.
+#
+# Install:
+#   sudo cp 99-nord.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+# Then re-plug the keyboard.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0ffc", ATTRS{idProduct}=="0026", MODE="0660", TAG+="uaccess"

@@ -1,0 +1,72 @@
+using NordSampleManager.Protocol;
+using NordSampleManager.Protocol.Transport;
+
+namespace NordSampleManager.Services;
+
+public enum ConnectionState { Disconnected, Connecting, Connected, Failed }
+
+public sealed class DeviceService : IDisposable
+{
+    private LibUsbNordDevice? device;
+    private NordClient? client;
+
+    public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
+    public NordClient? Client => client;
+    public string? LastError { get; private set; }
+
+    public ushort VendorId => device?.VendorId ?? 0;
+    public ushort ProductId => device?.ProductId ?? 0;
+    public byte BulkOut => device?.BulkOutEndpoint ?? 0;
+    public byte BulkIn => device?.BulkInEndpoint ?? 0;
+
+    public event EventHandler? StateChanged;
+
+    public async Task ConnectAsync(CancellationToken ct = default)
+    {
+        if (State == ConnectionState.Connecting) return;
+        SetState(ConnectionState.Connecting);
+
+        var newDevice = new LibUsbNordDevice();
+        var newClient = new NordClient(newDevice);
+        try
+        {
+            await newClient.ConnectAsync(ct);
+            device = newDevice;
+            client = newClient;
+            newDevice.Disconnected += OnDeviceDisconnected;
+            LastError = null;
+            SetState(ConnectionState.Connected);
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            newClient.Dispose();
+            newDevice.Dispose();
+            SetState(ConnectionState.Failed);
+        }
+    }
+
+    private void OnDeviceDisconnected(object? sender, EventArgs e)
+    {
+        LastError = "Device disconnected.";
+        Disconnect();
+    }
+
+    public void Disconnect()
+    {
+        if (device is not null) device.Disconnected -= OnDeviceDisconnected;
+        client?.Dispose();
+        device?.Dispose();
+        client = null;
+        device = null;
+        SetState(ConnectionState.Disconnected);
+    }
+
+    private void SetState(ConnectionState state)
+    {
+        State = state;
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void Dispose() => Disconnect();
+}

@@ -1,4 +1,26 @@
 # Clavia Nord Reverse Engineering
+
+This repo reverse-engineers the Clavia Nord Stage 3 USB protocol and builds a Linux-native .NET desktop manager (`NordSampleManager/`, Avalonia) to replace the Windows-only Nord Sound Manager. Python scripts (`nord_api.py`, `parse_nord_protocol.py`, `interpret_protocol.py`) remain the RE sandbox; confirmed protocol behavior is ported into the C# `NordSampleManager.Protocol` library.
+
+## Quickstart (Linux)
+
+```bash
+# 1) Grant the active user permission to talk to the keyboard
+sudo cp 99-nord.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+# re-plug the Nord
+
+# 2) Build and launch the desktop app
+dotnet build NordSampleManager.sln
+dotnet run --project NordSampleManager
+```
+
+Click "Connect & load". If `LIBUSB_ERROR_ACCESS` shows up in the status bar, the udev rule isn't installed or the device wasn't re-plugged.
+
+---
+
+## Protocol reference
+
 Endpoint addresses:
 
 0x81 = Endpoint 1 IN (device to host), Type 3 = Interrupt
