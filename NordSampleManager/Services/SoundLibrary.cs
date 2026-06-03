@@ -64,7 +64,12 @@ public sealed class SoundLibrary
         {
             ProgramBanks.Clear();
             foreach (var p in programs)
-                ProgramBanks.Add(new BankEntry($"Bank {p.BankLetter} · {p.Location:D2}", p.ItemIndex + 1, p.Name));
+            {
+                var entry = new BankEntry($"Bank {p.BankLetter} · {p.Location:D2}", p.ItemIndex + 1, p.Name);
+                if (p.PianoA is not null)
+                    entry = entry with { Detail = $"Piano A: {p.PianoA}" };
+                ProgramBanks.Add(entry);
+            }
         });
 
         return unit;

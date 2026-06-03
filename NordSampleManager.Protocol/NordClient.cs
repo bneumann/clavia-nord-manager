@@ -197,34 +197,46 @@ public sealed class NordClient : IDisposable
         return EitherAsync<NordError, Unit>.Right(unit)
             .BindAsync<Option<ProgramInfo>>(async _ =>
             {
-                // Step 1: basic header (p2=0x1e → p2=0x1f)
+                // Step 1: p2=0x1e → p2=0x1f. Patch name is at offset 36 (uint32 length at 32).
                 var basicResult = await SendAndReceiveAsync(
                     NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.RequestItemBasic, basicPayload, ct)
                     .ToEither().ConfigureAwait(false);
                 if (basicResult.IsLeft)
                     return basicResult.Map(_ => Option<ProgramInfo>.None).ToAsync();
 
-                // Step 2: full detail (p2=0x28 → p2=0x29)
+                ItemData itemData = default;
+                bool hasItemData = false;
+                basicResult.IfRight(raw =>
+                {
+                    if (MessageParser.TryParse(raw, out var msg))
+                        hasItemData = MessageParser.TryParseItemData(msg.Payload, out itemData);
+                });
+                if (!hasItemData)
+                    return Right<NordError, Option<ProgramInfo>>(None).ToAsync();
+
+                // Step 2: p2=0x28 → p2=0x29. Piano A name at offset 33 (byte length at 32),
+                // is_occupied=1 means Piano A layer is active in this program.
                 var detailResult = await SendAndReceiveAsync(
                     NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.RequestItemDetail, basicPayload, ct)
                     .ToEither().ConfigureAwait(false);
-                if (detailResult.IsLeft)
-                    return detailResult.Map(_ => Option<ProgramInfo>.None).ToAsync();
 
-                Either<NordError, Option<ProgramInfo>> decoded = Right<NordError, Option<ProgramInfo>>(None);
+                string? pianoA = null;
                 detailResult.IfRight(raw =>
                 {
-                    if (!MessageParser.TryParse(raw, out var msg)) return;
-                    var detail = MessageParser.ParseProgramDetail(msg.Payload);
-                    decoded = Right<NordError, Option<ProgramInfo>>(
-                        detail.Filter(d => d.IsOccupied)
-                              .Map(d => new ProgramInfo(
-                                  BankLetter:   ((char)('A' + d.BankId)).ToString(),
-                                  BankId:       d.BankId,
-                                  ItemIndex:    d.ItemId,
-                                  Name:         d.Name)));
+                    if (MessageParser.TryParse(raw, out var msg))
+                        MessageParser.ParseProgramDetail(msg.Payload)
+                            .Filter(d => d.IsOccupied)
+                            .IfSome(d => pianoA = d.Name);
                 });
-                return decoded.ToAsync();
+
+                var info = new ProgramInfo(
+                    BankLetter: ((char)('A' + (int)bank)).ToString(),
+                    BankId:     (int)bank,
+                    ItemIndex:  (int)item,
+                    Name:       itemData.Name,
+                    PianoA:     pianoA);
+
+                return Right<NordError, Option<ProgramInfo>>(Some(info)).ToAsync();
             });
     }
 
