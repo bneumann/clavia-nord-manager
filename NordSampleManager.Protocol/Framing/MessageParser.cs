@@ -154,6 +154,7 @@ public static class MessageParser
 
         var fileType = Encoding.ASCII.GetString(span.Slice(16, 4));
         var versionRaw = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(20, 4));
+        var dataSize = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
         var categoryField = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(28, 4));
         var nameLen = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(32, 4));
         if (nameLen <= 0 || 36 + nameLen > span.Length) return false;
@@ -163,7 +164,8 @@ public static class MessageParser
             fileType,
             versionRaw / 100,
             versionRaw % 100,
-            categoryField);
+            categoryField,
+            dataSize);
         return true;
     }
 
@@ -183,7 +185,8 @@ public readonly record struct ItemData(
     string FileType,
     int VersionMajor,
     int VersionMinor,
-    uint CategoryField)
+    uint CategoryField,
+    uint DataSize = 0)
 {
     public string Version => $"{VersionMajor}.{VersionMinor:D2}";
 }

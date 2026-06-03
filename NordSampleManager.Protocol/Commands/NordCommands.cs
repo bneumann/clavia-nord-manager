@@ -33,6 +33,14 @@ public static class NordCommands
     public const uint ProgramLibraryId  = 0x00000007;  // library_id that selects Programs A-P (ns3f)
     public const uint PianoLibraryId    = 0x00000001;  // library_id that selects Pianos (npno); banks = categories
 
+    // Download commands (confirmed from Upload Test2.pcapng, 2026-06-03).
+    public const uint RequestDownload   = 0x0000000c;  // H→D: [bank, item]
+    public const uint DownloadReady     = 0x0000000d;  // D→H: [0, bank, item]
+    public const uint StartTransfer     = 0x00000012;  // H→D: [bank, item, offset, dataSize]
+    public const uint FileData          = 0x00000013;  // D→H: [0, bank, item, 0, dataSize, ...rawData]
+    public const uint FinishTransfer    = 0x0000000e;  // H→D: [bank, item]
+    public const uint FinishTransferAck = 0x0000000f;  // D→H: [0, bank, item]
+
     // Rename / write commands (confirmed from Rename N11 pcapng, 2026-06-03).
     public const uint EditItemOpen    = 0x00000033;  // H→D: [bank_id, item_index, new_category_code]
     public const uint EditItemOpenAck = 0x00000034;  // D→H

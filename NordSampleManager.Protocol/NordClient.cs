@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Hashing;
 using LanguageExt;
 using static LanguageExt.Prelude;
 using NordSampleManager.Protocol.Commands;
@@ -349,6 +350,139 @@ public sealed class NordClient : IDisposable
     private EitherAsync<NordError, Unit> CloseIteratorAsync(CancellationToken ct) =>
         from raw in SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.CloseIterator, ReadOnlyMemory<byte>.Empty, ct)
         select unit;
+
+    // ----------------------------------------------------------------
+    // Download — confirmed protocol from Upload Test2.pcapng, 2026-06-03.
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Download a program slot to a complete .ns3f byte array (CBIN header + raw data).
+    /// CRC-32 of the raw data is computed and stored in the CBIN header at offset [24..27] LE.
+    /// Single-chunk only; programs are small (≤ a few KB) so one p2=0x13 message suffices.
+    /// </summary>
+    public EitherAsync<NordError, byte[]> DownloadProgramAsync(
+        int bankId, int itemIndex, CancellationToken ct = default) =>
+        EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<byte[]>(async _ =>
+            {
+                var result = await DownloadProgramCoreAsync(bankId, itemIndex, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+
+    private async Task<Either<NordError, byte[]>> DownloadProgramCoreAsync(
+        int bankId, int itemIndex, CancellationToken ct)
+    {
+        var itemPayload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(0, 4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(4, 4), (uint)itemIndex);
+
+        var libPayload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(libPayload, NordCommands.ProgramLibraryId);
+
+        // 1. LibrarySelect
+        var selResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (selResult.IsLeft) return selResult.Map(_ => System.Array.Empty<byte>());
+
+        // 2. RequestItemBasic → ItemBasicData (get dataSize, versionRaw, nameLen)
+        var basicResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.RequestItemBasic, itemPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (basicResult.IsLeft) return basicResult.Map(_ => System.Array.Empty<byte>());
+
+        ItemData meta = default;
+        Either<NordError, byte[]> metaError = Right<NordError, byte[]>(System.Array.Empty<byte>());
+        basicResult.IfRight(raw =>
+        {
+            if (!MessageParser.TryParse(raw, out var msg) ||
+                !MessageParser.TryParseItemData(msg.Payload, out meta))
+                metaError = Left<NordError, byte[]>(new NordError.ParseFailed("Failed to parse ItemBasicData"));
+        });
+        if (metaError.IsLeft) return metaError;
+        if (meta.DataSize == 0)
+            return Left<NordError, byte[]>(new NordError.ParseFailed("ItemBasicData reported DataSize=0"));
+
+        // 3. RequestDownload → DownloadReady
+        var rdResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.RequestDownload, itemPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (rdResult.IsLeft) return rdResult.Map(_ => System.Array.Empty<byte>());
+
+        // 4. StartTransfer → FileData
+        var startPayload = new byte[16];
+        BinaryPrimitives.WriteUInt32BigEndian(startPayload.AsSpan(0, 4),  (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(startPayload.AsSpan(4, 4),  (uint)itemIndex);
+        BinaryPrimitives.WriteUInt32BigEndian(startPayload.AsSpan(8, 4),  0u);            // offset
+        BinaryPrimitives.WriteUInt32BigEndian(startPayload.AsSpan(12, 4), meta.DataSize); // total size
+
+        var fileDataResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.StartTransfer, startPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (fileDataResult.IsLeft) return fileDataResult.Map(_ => System.Array.Empty<byte>());
+
+        byte[] rawData = System.Array.Empty<byte>();
+        Either<NordError, byte[]> parseError = Right<NordError, byte[]>(System.Array.Empty<byte>());
+        fileDataResult.IfRight(raw =>
+        {
+            if (!MessageParser.TryParse(raw, out var msg) || msg.Param2 != NordCommands.FileData)
+            {
+                parseError = Left<NordError, byte[]>(new NordError.ParseFailed(
+                    $"Expected p2=0x{NordCommands.FileData:x}, got p2=0x{(MessageParser.TryParse(raw, out var m2) ? m2.Param2 : 0):x}"));
+                return;
+            }
+            var payload = msg.Payload.Span;
+            if (payload.Length < 20)
+            {
+                parseError = Left<NordError, byte[]>(new NordError.ParseFailed("FileData payload too short"));
+                return;
+            }
+            var receivedSize = (int)BinaryPrimitives.ReadUInt32BigEndian(payload.Slice(16, 4));
+            rawData = payload.Slice(20, receivedSize).ToArray();
+        });
+        if (parseError.IsLeft) return parseError;
+
+        // 5. FinishTransfer → FinishTransferAck
+        var finResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.FinishTransfer, itemPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (finResult.IsLeft) return finResult.Map(_ => System.Array.Empty<byte>());
+
+        // 6. LibraryInfo → LibraryInfoAck
+        await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+
+        // 7. CloseIterator
+        await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
+
+        return Right<NordError, byte[]>(BuildNs3fFile(bankId, itemIndex, meta, rawData));
+    }
+
+    private static byte[] BuildNs3fFile(int bankId, int itemIndex, ItemData meta, byte[] rawData)
+    {
+        var file = new byte[44 + rawData.Length];
+        var span = file.AsSpan();
+
+        // Magic + container version
+        System.Text.Encoding.ASCII.GetBytes("CBIN").CopyTo(span);
+        BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(4,  4), 1u);
+        // File type (e.g. "ns3f")
+        System.Text.Encoding.ASCII.GetBytes(meta.FileType).CopyTo(span.Slice(8, 4));
+        // Bank + item (LE byte each)
+        span[12] = (byte)bankId;
+        span[14] = (byte)itemIndex;
+        // nameLen LE, versionRaw LE
+        BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(16, 4), (uint)(meta.Name.Length + 1)); // +1 for null stored by Nord
+        BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(20, 4), (uint)(meta.VersionMajor * 100 + meta.VersionMinor));
+        // CRC-32 of raw data, LE
+        var crc = Crc32.HashToUInt32(rawData);
+        BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(24, 4), crc);
+        // [28..43] = zeros (already zero-initialized)
+        rawData.CopyTo(span.Slice(44));
+
+        return file;
+    }
 
     // ----------------------------------------------------------------
     // Rename — confirmed protocol from pcapng RE, 2026-06-03.

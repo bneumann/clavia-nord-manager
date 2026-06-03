@@ -20,6 +20,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool canConnect = true;
     [ObservableProperty] private bool canReload;
     [ObservableProperty] private bool canRename;
+    [ObservableProperty] private bool canExport;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
@@ -85,6 +86,7 @@ public partial class MainWindowViewModel : ObservableObject
         CanConnect = !IsBusy && deviceService.State is ConnectionState.Disconnected or ConnectionState.Failed;
         CanReload  = connected;
         CanRename  = connected && SelectedCategory?.SelectedEntry?.Ref?.ItemType == SoundItemType.Program;
+        CanExport  = CanRename;
     }
 
     [RelayCommand]
@@ -168,6 +170,63 @@ public partial class MainWindowViewModel : ObservableObject
                     DetailHeader = vm.Name;
                 },
                 Left: err => StatusText = $"Rename failed: {err.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportAsync()
+    {
+        var entry = SelectedCategory?.SelectedEntry;
+        if (entry?.Ref is not { ItemType: SoundItemType.Program } ref_) return;
+        if (deviceService.Client is null) return;
+
+        Avalonia.Controls.Window? owner = null;
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
+            owner = dt.MainWindow;
+        if (owner is null) return;
+
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(owner);
+        if (topLevel is null) return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(
+            new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export program",
+                SuggestedFileName = $"{entry.Name}.ns3f",
+                FileTypeChoices =
+                [
+                    new Avalonia.Platform.Storage.FilePickerFileType("Nord Stage 3 Program")
+                    {
+                        Patterns = ["*.ns3f"],
+                    },
+                ],
+            });
+        if (file is null) return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await deviceService.Client
+                .DownloadProgramAsync(ref_.Bank, ref_.Location)
+                .ToEither();
+
+            await result.Match<System.Threading.Tasks.Task>(
+                Right: async bytes =>
+                {
+                    await using var stream = await file.OpenWriteAsync();
+                    await stream.WriteAsync(bytes);
+                    StatusText = $"Exported: {entry.Name}.ns3f";
+                },
+                Left: err =>
+                {
+                    StatusText = $"Export failed: {err.Message}";
+                    return System.Threading.Tasks.Task.CompletedTask;
+                });
         }
         finally
         {

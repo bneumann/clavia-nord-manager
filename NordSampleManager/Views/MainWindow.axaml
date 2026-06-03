@@ -17,6 +17,9 @@
         <Button Content="Rename…"
                 Command="{Binding RenameCommand}"
                 IsEnabled="{Binding CanRename}"/>
+        <Button Content="Export…"
+                Command="{Binding ExportCommand}"
+                IsEnabled="{Binding CanExport}"/>
         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
         <ProgressBar IsIndeterminate="True" Width="120"
                      IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>
