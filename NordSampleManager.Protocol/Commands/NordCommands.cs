@@ -41,6 +41,12 @@ public static class NordCommands
     public const uint FinishTransfer    = 0x0000000e;  // H→D: [bank, item]
     public const uint FinishTransferAck = 0x0000000f;  // D→H: [0, bank, item]
 
+    // Upload commands (confirmed from Download Stevie Likes It To Nord.pcapng, 2026-06-03).
+    public const uint UploadMetadata    = 0x0000000a;  // H→D: [bank, item, size, type, crc32, category, nameLen, name]
+    public const uint UploadMetadataAck = 0x0000000b;  // D→H: [status, bank, item]
+    public const uint SendFileData      = 0x00000010;  // H→D: [bank, item, offset, size, rawData]
+    public const uint SendFileDataAck   = 0x00000011;  // D→H: [status, bank, item]
+
     // Delete commands (confirmed from Delete Stevie Likes It.pcapng, 2026-06-03).
     public const uint DeleteRequest  = 0x00000014;  // H→D: [bank, item]
     public const uint DeleteResponse = 0x00000015;  // D→H: [status, bank, item]

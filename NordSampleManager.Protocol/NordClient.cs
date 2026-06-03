@@ -485,6 +485,91 @@ public sealed class NordClient : IDisposable
     }
 
     // ----------------------------------------------------------------
+    // Upload — confirmed protocol from Download Stevie Likes It To Nord.pcapng, 2026-06-03.
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Upload a program to the device. <paramref name="rawData"/> is the raw program binary
+    /// (CBIN file minus the 44-byte header). The name must fit in 16 chars (Nord limit).
+    /// </summary>
+    public EitherAsync<NordError, Unit> UploadProgramAsync(
+        int bankId, int itemIndex, string name, string fileType,
+        byte[] rawData, uint categoryCode = 0, CancellationToken ct = default) =>
+        EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Unit>(async _ =>
+            {
+                var result = await UploadProgramCoreAsync(bankId, itemIndex, name, fileType, rawData, categoryCode, ct)
+                    .ConfigureAwait(false);
+                return result.ToAsync();
+            });
+
+    private async Task<Either<NordError, Unit>> UploadProgramCoreAsync(
+        int bankId, int itemIndex, string name, string fileType,
+        byte[] rawData, uint categoryCode, CancellationToken ct)
+    {
+        var libPayload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(libPayload, NordCommands.ProgramLibraryId);
+
+        var itemPayload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(0, 4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(4, 4), (uint)itemIndex);
+
+        // 1. LibrarySelect
+        var selResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (selResult.IsLeft) return selResult.Map(_ => unit);
+
+        // 2. UploadMetadata → UploadMetadataAck
+        // Payload: [bank, item, size, fileType(4), crc32_BE, category, nameLen, nameBytes]
+        var nameBytes = System.Text.Encoding.ASCII.GetBytes(name);
+        var metaPayload = new byte[28 + nameBytes.Length];
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(0,  4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(4,  4), (uint)itemIndex);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(8,  4), (uint)rawData.Length);
+        System.Text.Encoding.ASCII.GetBytes(fileType).CopyTo(metaPayload.AsSpan(12, 4));
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(16, 4), Crc32.HashToUInt32(rawData));
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(20, 4), categoryCode);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(24, 4), (uint)nameBytes.Length);
+        nameBytes.CopyTo(metaPayload.AsSpan(28));
+
+        var metaResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.UploadMetadata, metaPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (metaResult.IsLeft) return metaResult.Map(_ => unit);
+
+        // 3. SendFileData → SendFileDataAck
+        // Payload: [bank, item, offset=0, size, rawData]
+        var dataPayload = new byte[16 + rawData.Length];
+        BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(0,  4), (uint)bankId);
+        BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(4,  4), (uint)itemIndex);
+        BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(8,  4), 0u);              // offset
+        BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(12, 4), (uint)rawData.Length);
+        rawData.CopyTo(dataPayload.AsSpan(16));
+
+        var dataResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.SendFileData, dataPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (dataResult.IsLeft) return dataResult.Map(_ => unit);
+
+        // 4. FinishTransfer → FinishTransferAck
+        var finResult = await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.FinishTransfer, itemPayload, ct)
+            .ToEither().ConfigureAwait(false);
+        if (finResult.IsLeft) return finResult.Map(_ => unit);
+
+        // 5. LibraryInfo → LibraryInfoAck (best-effort)
+        await SendAndReceiveAsync(
+            NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct)
+            .ToEither().ConfigureAwait(false);
+
+        // 6. CloseIterator (best-effort)
+        await CloseIteratorAsync(ct).ToEither().ConfigureAwait(false);
+
+        return Right<NordError, Unit>(unit);
+    }
+
+    // ----------------------------------------------------------------
     // Delete — confirmed protocol from Delete Stevie Likes It.pcapng, 2026-06-03.
     // ----------------------------------------------------------------
 

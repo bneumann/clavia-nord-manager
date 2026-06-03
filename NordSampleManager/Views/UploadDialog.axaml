@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NordSampleManager.ViewModels"
+        x:Class="NordSampleManager.Views.UploadDialog"
+        x:DataType="vm:UploadDialogViewModel"
+        Title="Upload Program"
+        Width="420" Height="320"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+  <Grid RowDefinitions="*,Auto" Margin="16">
+
+    <StackPanel Grid.Row="0" Spacing="12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Name" FontWeight="SemiBold"/>
+        <TextBox Text="{Binding Name}" MaxLength="16"
+                 KeyDown="OnKeyDown"/>
+      </StackPanel>
+      <StackPanel Spacing="4">
+        <TextBlock Text="Category" FontWeight="SemiBold"/>
+        <ComboBox ItemsSource="{Binding Categories}"
+                  SelectedItem="{Binding SelectedCategoryItem}"
+                  DisplayMemberBinding="{Binding Label}"
+                  HorizontalAlignment="Stretch"/>
+      </StackPanel>
+      <StackPanel Spacing="4">
+        <TextBlock Text="Target slot" FontWeight="SemiBold"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ComboBox ItemsSource="{Binding Banks}"
+                    SelectedItem="{Binding SelectedBank}"
+                    DisplayMemberBinding="{Binding Label}"
+                    Width="140"/>
+          <ComboBox ItemsSource="{Binding Slots}"
+                    SelectedItem="{Binding SelectedSlot}"
+                    DisplayMemberBinding="{Binding Label}"
+                    Width="72"/>
+        </StackPanel>
+        <TextBlock Text="{Binding OverwriteWarning}"
+                   IsVisible="{Binding IsOverwrite}"
+                   Foreground="OrangeRed"
+                   FontSize="11"
+                   Margin="0,2,0,0"/>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8"
+                HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Cancel"                Click="OnCancel"  IsCancel="True"/>
+      <Button Content="{Binding ConfirmLabel}" Click="OnUpload"  IsDefault="True"/>
+    </StackPanel>
+
+  </Grid>
+</Window>

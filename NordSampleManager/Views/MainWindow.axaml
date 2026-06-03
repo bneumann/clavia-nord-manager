@@ -23,6 +23,9 @@
         <Button Content="Delete…"
                 Command="{Binding DeleteCommand}"
                 IsEnabled="{Binding CanDelete}"/>
+        <Button Content="Upload…"
+                Command="{Binding UploadCommand}"
+                IsEnabled="{Binding CanUpload}"/>
         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
         <ProgressBar IsIndeterminate="True" Width="120"
                      IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>

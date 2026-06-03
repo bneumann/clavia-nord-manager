@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using NordSampleManager.Protocol.Records;
 using NordSampleManager.Services;
 using NordSampleManager.Views;
+using Avalonia.Platform.Storage;
 using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
 
 namespace NordSampleManager.ViewModels;
@@ -22,6 +23,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool canRename;
     [ObservableProperty] private bool canExport;
     [ObservableProperty] private bool canDelete;
+    [ObservableProperty] private bool canUpload;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
@@ -89,6 +91,7 @@ public partial class MainWindowViewModel : ObservableObject
         CanRename  = connected && SelectedCategory?.SelectedEntry?.Ref?.ItemType == SoundItemType.Program;
         CanExport  = CanRename;
         CanDelete  = CanRename;
+        CanUpload  = connected;
     }
 
     [RelayCommand]
@@ -229,6 +232,85 @@ public partial class MainWindowViewModel : ObservableObject
                     StatusText = $"Export failed: {err.Message}";
                     return System.Threading.Tasks.Task.CompletedTask;
                 });
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UploadAsync()
+    {
+        if (deviceService.Client is null) return;
+
+        Avalonia.Controls.Window? owner = null;
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dt)
+            owner = dt.MainWindow;
+        if (owner is null) return;
+
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(owner);
+        if (topLevel is null) return;
+
+        // File open picker — .ns3f only.
+        var picks = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Open program file",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Nord Stage 3 Program") { Patterns = ["*.ns3f"] },
+            ],
+        });
+        if (picks.Count == 0) return;
+
+        byte[] fileBytes;
+        try
+        {
+            await using var stream = await picks[0].OpenReadAsync();
+            using var ms = new System.IO.MemoryStream();
+            await stream.CopyToAsync(ms);
+            fileBytes = ms.ToArray();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to read file: {ex.Message}";
+            return;
+        }
+
+        if (!CbinFile.TryParse(fileBytes, out var cbin))
+        {
+            StatusText = "Not a valid CBIN/ns3f file.";
+            return;
+        }
+
+        // Default name = filename without extension (capped at 16 chars).
+        var defaultName = System.IO.Path.GetFileNameWithoutExtension(picks[0].Name);
+
+        // Build a lookup of occupied (bank, location) → name so the dialog can warn on overwrite.
+        var occupied = library.ProgramBanks
+            .Where(e => e.Ref.HasValue)
+            .ToDictionary(
+                e => (e.Ref!.Value.Bank, e.Ref!.Value.Location),
+                e => e.Name);
+
+        var vm = new UploadDialogViewModel(defaultName, cbin.BankId, cbin.ItemIndex, occupied);
+        var dialog = new UploadDialog { DataContext = vm };
+
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (!confirmed) return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await deviceService.Client
+                .UploadProgramAsync(vm.BankId, vm.ItemIndex, vm.Name, cbin.FileType, cbin.RawData, vm.CategoryCode)
+                .ToEither();
+
+            result.Match(
+                Right: _ => StatusText = $"Uploaded: {vm.Name}",
+                Left:  err => StatusText = $"Upload failed: {err.Message}");
         }
         finally
         {
