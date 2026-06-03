@@ -23,9 +23,10 @@ public class ProgramCategoryTests
     }
 
     [Fact]
-    public void FromCode_Zero_ReturnsUndefined()
+    public void FromCode_Zero_ReturnsAcoustic()
     {
-        Assert.Equal(ProgramCategory.Undefined, ProgramCategoryExtensions.FromCode(0u));
+        // Acoustic = 0 is the confirmed code from the protocol dump.
+        Assert.Equal(ProgramCategory.Acoustic, ProgramCategoryExtensions.FromCode(0u));
     }
 
     // ── DisplayName ─────────────────────────────────────────────────────────

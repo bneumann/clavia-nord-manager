@@ -2,30 +2,30 @@ namespace NordSampleManager.Protocol.Records;
 
 /// <summary>
 /// Program category codes sent in p2=0x33 (EditItemOpen) during rename.
-/// 3 values confirmed from pcapng RE; remaining 16 are placeholders —
-/// verify by running query_programs.py on a live device.
+/// All 19 values confirmed by cross-referencing the protocol dump with
+/// the Nord Stage 3 Program HTML export via extract_categories.py.
 /// </summary>
 public enum ProgramCategory : uint
 {
-    Bass          = 1,    // verified by user
-    Acoustic      = 3,    // TODO verify
-    Arpeggio      = 2,    // TODO verify
-    Clavinet      = 27,   // confirmed
-    EPiano1       = 4,    // TODO verify
-    EPiano2       = 24,   // confirmed
-    Fantasy       = 5,    // TODO verify
-    FX            = 6,    // TODO verify
-    Grand         = 21,   // confirmed
-    GuitarPlucked = 7,    // TODO verify  (display: "Guitar/Plucked")
-    Harpsichord   = 8,    // TODO verify
-    Lead          = 9,    // TODO verify
-    Organ         = 10,   // TODO verify
-    Pad           = 11,   // TODO verify
-    StringCat     = 12,   // TODO verify  (display: "String")
-    Synth         = 13,   // TODO verify
-    Undefined     = 14,   // TODO verify
-    Upright       = 15,   // TODO verify
-    Wind          = 16,   // TODO verify
+    Acoustic      = 0,
+    Bass          = 1,
+    Wind          = 2,
+    Fantasy       = 4,
+    FX            = 5,
+    Lead          = 6,
+    Organ         = 7,
+    Pad           = 8,
+    GuitarPlucked = 10,  // display: "Guitar/Plucked"
+    StringCat     = 11,  // display: "String"
+    Synth         = 12,
+    Grand         = 21,
+    Upright       = 22,
+    EPiano1       = 23,
+    EPiano2       = 24,
+    Clavinet      = 27,
+    Harpsichord   = 28,
+    Arpeggio      = 30,
+    Undefined     = 0xFFFF_FFFF,
 }
 
 public static class ProgramCategoryExtensions
