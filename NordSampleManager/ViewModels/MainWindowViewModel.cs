@@ -28,7 +28,7 @@ public partial class MainWindowViewModel : ObservableObject
         Categories = new ObservableCollection<CategoryViewModel>
         {
             new(LibraryCategory.Piano,   "Pianos",         "Categories on device", library.PianoCategories),
-            new(LibraryCategory.Program, "Programs",       "Banks A–P",            library.ProgramBanks),
+            new(LibraryCategory.Program, "Programs",       "Banks A–N",            library.ProgramBanks),
             new(LibraryCategory.SampLib, "Sample Library", "Samp Lib banks",       library.SampLibBanks),
             new(LibraryCategory.Song,    "Songs",          "Banks 1–8",            library.SongBanks),
             new(LibraryCategory.Synth,   "Synths",         "Banks 1–8",            library.SynthBanks),
@@ -50,13 +50,16 @@ public partial class MainWindowViewModel : ObservableObject
             DetailBody = null;
             return;
         }
-        DetailHeader = cat.SelectedEntry.Name;
-        DetailBody =
-            $"Kind:     {cat.SelectedEntry.Kind}\n" +
-            $"Index:    {cat.SelectedEntry.Index}\n" +
-            $"Name:     {cat.SelectedEntry.Name}\n\n" +
-            "Per-item detail (description, version, size, cross-references) " +
-            "requires the Param2=0x1e / 0x28 queries — not yet decoded.";
+        var entry = cat.SelectedEntry;
+        DetailHeader = entry.Name;
+        DetailBody = entry.Detail is not null
+            ? $"Kind:     {entry.Kind}\n" +
+              $"Name:     {entry.Name}\n\n" +
+              entry.Detail
+            : $"Kind:     {entry.Kind}\n" +
+              $"Index:    {entry.Index}\n" +
+              $"Name:     {entry.Name}\n\n" +
+              "Per-item detail requires the Param2=0x1e / 0x28 queries — not yet decoded.";
     }
 
     private void UpdateStatus()
@@ -80,8 +83,12 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await deviceService.ConnectAsync();
             if (deviceService.State != ConnectionState.Connected || deviceService.Client is null) return;
-            await library.LoadAsync(deviceService.Client);
+
+            var loadResult = await library.LoadAsync(deviceService.Client);
+            loadResult.IfLeft(err => StatusText = $"Load error: {err.Message}");
+
             SelectedCategory ??= Categories[0];
+            if (loadResult.IsRight) UpdateStatus();
         }
         finally
         {

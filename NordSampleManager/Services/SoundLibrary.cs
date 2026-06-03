@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using LanguageExt;
+using static LanguageExt.Prelude;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
 
@@ -11,10 +13,10 @@ namespace NordSampleManager.Services;
 public sealed class SoundLibrary
 {
     public ObservableCollection<BankEntry> PianoCategories { get; } = new();
-    public ObservableCollection<BankEntry> ProgramBanks { get; } = new();
-    public ObservableCollection<BankEntry> SampLibBanks { get; } = new();
-    public ObservableCollection<BankEntry> SongBanks { get; } = new();
-    public ObservableCollection<BankEntry> SynthBanks { get; } = new();
+    public ObservableCollection<BankEntry> ProgramBanks    { get; } = new();
+    public ObservableCollection<BankEntry> SampLibBanks    { get; } = new();
+    public ObservableCollection<BankEntry> SongBanks       { get; } = new();
+    public ObservableCollection<BankEntry> SynthBanks      { get; } = new();
 
     public void Clear()
     {
@@ -25,18 +27,50 @@ public sealed class SoundLibrary
         SynthBanks.Clear();
     }
 
-    public async Task LoadAsync(NordClient client, CancellationToken ct = default)
+    /// <summary>
+    /// Load all collections from the device. Returns Left on a fatal transport or parse error.
+    /// The per-item program query (Param2=0x21, RE hypothesis) is best-effort: on failure it
+    /// silently keeps the bank-name fallback already in <see cref="ProgramBanks"/>.
+    /// </summary>
+    public async Task<Either<NordError, Unit>> LoadAsync(NordClient client, CancellationToken ct = default)
     {
         Clear();
-        FillFromStrings(PianoCategories, "Piano category", await client.QueryPianoCategoriesAsync(ct));
-        // Programs occupy Banks A-P on the device (Param2=0x02, payload=0x07).
-        FillFromStrings(ProgramBanks, "Program bank", await client.QueryBanksAtoPAsync(ct));
-        // Samp Lib is exposed as a single bank (payload=0x05).
-        FillFromStrings(SampLibBanks, "Samp Lib", await client.QuerySampLibAsync(ct));
-        // Songs use Banks 1-8 (payload=0x08).
-        FillFromStrings(SongBanks, "Song bank", await client.QueryBanks1to8V1Async(ct));
-        // Synths use Banks 1-8 (payload=0x09).
-        FillFromStrings(SynthBanks, "Synth bank", await client.QueryBanks1to8V2Async(ct));
+
+        // Critical queries — all confirmed working. Failure here returns Left.
+        var listsResult = await (
+            from pianos in client.QueryPianoCategoriesAsync(ct)
+            from banks  in client.QueryBanksAtoPAsync(ct)
+            from samp   in client.QuerySampLibAsync(ct)
+            from songs  in client.QueryBanks1to8V1Async(ct)
+            from synths in client.QueryBanks1to8V2Async(ct)
+            select (pianos, banks, samp, songs, synths)
+        ).ToEither();
+
+        if (listsResult.IsLeft) return listsResult.Map(_ => unit);
+
+        listsResult.IfRight(t =>
+        {
+            FillFromStrings(PianoCategories, "Piano category", t.pianos);
+            FillFromStrings(ProgramBanks,    "Program bank",   t.banks);  // initial bank names
+            FillFromStrings(SampLibBanks,    "Samp Lib",       t.samp);
+            FillFromStrings(SongBanks,       "Song bank",      t.songs);
+            FillFromStrings(SynthBanks,      "Synth bank",     t.synths);
+        });
+
+        // Best-effort: replace bank names with rich per-item metadata if the device supports it.
+        // Falls back silently to bank names already in ProgramBanks if the query fails.
+        var programsResult = await client.QueryAllProgramsAsync(ct).ToEither();
+        programsResult.IfRight(programs =>
+        {
+            ProgramBanks.Clear();
+            foreach (var p in programs)
+                ProgramBanks.Add(new BankEntry($"Bank {p.BankLetter} · {p.Location:D2}", p.ItemIndex + 1, p.Name)
+                {
+                    Detail = $"Type: {p.FileType}\nVersion: {p.Version}\nCategory: 0x{p.CategoryField:x8}"
+                });
+        });
+
+        return unit;
     }
 
     private static void FillFromStrings(ObservableCollection<BankEntry> target, string label, IReadOnlyList<string> names)
@@ -48,5 +82,6 @@ public sealed class SoundLibrary
 
 public sealed record BankEntry(string Kind, int Index, string Name)
 {
+    public string? Detail { get; init; }
     public override string ToString() => $"{Kind} {Index}: {Name}";
 }

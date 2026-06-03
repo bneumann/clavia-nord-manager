@@ -1,6 +1,9 @@
+using LanguageExt;
+using static LanguageExt.Prelude;
 using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
+using LibUsbError = LibUsbDotNet.Error;
 
 namespace NordSampleManager.Protocol.Transport;
 
@@ -35,109 +38,127 @@ public sealed class LibUsbNordDevice : INordDevice
 
     public event EventHandler? Disconnected;
 
-    public ValueTask ConnectAsync(CancellationToken ct = default)
+    // ConnectAsync is synchronous internally; Task.Run keeps it off the UI thread.
+    public EitherAsync<NordError, Unit> ConnectAsync(CancellationToken ct = default) =>
+        EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Unit>(async _ =>
+            {
+                var result = await Task.Run(ConnectCore, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+
+    private Either<NordError, Unit> ConnectCore()
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
-        if (IsConnected) return ValueTask.CompletedTask;
+        if (disposed) return new NordError.DeviceNotFound("Device is disposed.");
+        if (IsConnected) return unit;
 
         context = new UsbContext();
-        var found = context.Find(new UsbDeviceFinder { Vid = vid, Pid = pid })
-            ?? throw new NordDeviceDisconnectedException(
+        var found = context.Find(new UsbDeviceFinder { Vid = vid, Pid = pid });
+        if (found is null)
+            return new NordError.DeviceNotFound(
                 $"USB device {vid:x4}:{pid:x4} not found. Is the Nord plugged in?");
 
         found.Open();
-
         if (found is UsbDevice concrete)
-        {
             try { concrete.SetAutoDetachKernelDriver(true); } catch { /* not all platforms */ }
-        }
 
         if (!found.ClaimInterface(InterfaceNumber))
         {
             found.Close();
-            throw new NordDeviceDisconnectedException(
+            return new NordError.InterfaceClaimFailed(
                 $"Could not claim interface {InterfaceNumber}. Check udev rules (see README).");
         }
         claimedInterface = true;
 
-        (bulkOutAddress, bulkInAddress) = FindBulkEndpoints(found);
-
-        writer = found.OpenEndpointWriter(
-            (WriteEndpointID)bulkOutAddress,
-            EndpointType.Bulk);
-        reader = found.OpenEndpointReader(
-            (ReadEndpointID)bulkInAddress,
-            readBufferSize: 4096,
-            EndpointType.Bulk);
-
-        device = found;
-        return ValueTask.CompletedTask;
+        return FindBulkEndpoints(found).Match(
+            Right: endpoints =>
+            {
+                (bulkOutAddress, bulkInAddress) = endpoints;
+                writer = found.OpenEndpointWriter((WriteEndpointID)bulkOutAddress, EndpointType.Bulk);
+                reader = found.OpenEndpointReader((ReadEndpointID)bulkInAddress, 4096, EndpointType.Bulk);
+                device = found;
+                return Right<NordError, Unit>(unit);
+            },
+            Left: err => Left<NordError, Unit>(err));
     }
 
-    public async ValueTask SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
+    public EitherAsync<NordError, Unit> SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)
     {
-        EnsureConnected();
+        if (!IsConnected)
+            return LeftAsync<NordError, Unit>(new NordError.DeviceDisconnected("Not connected."));
+        return EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<Unit>(async _ =>
+            {
+                var result = await SendCoreAsync(frame, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+    }
+
+    private async Task<Either<NordError, Unit>> SendCoreAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
+    {
         var (err, _) = await writer!.WriteAsync(frame, DefaultTimeoutMs).WaitAsync(ct).ConfigureAwait(false);
-        ThrowIfTransferFailed(err, sending: true);
+        return MapTransferError(err, sending: true)
+            .Match(Some: e => Left<NordError, Unit>(e), None: () => Right<NordError, Unit>(unit));
     }
 
-    public async ValueTask<ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
+    public EitherAsync<NordError, ReadOnlyMemory<byte>> ReceiveAsync(int maxLength, CancellationToken ct = default)
     {
-        EnsureConnected();
+        if (!IsConnected)
+            return LeftAsync<NordError, ReadOnlyMemory<byte>>(new NordError.DeviceDisconnected("Not connected."));
+        return EitherAsync<NordError, Unit>.Right(unit)
+            .BindAsync<ReadOnlyMemory<byte>>(async _ =>
+            {
+                var result = await ReceiveCoreAsync(maxLength, ct).ConfigureAwait(false);
+                return result.ToAsync();
+            });
+    }
+
+    private async Task<Either<NordError, ReadOnlyMemory<byte>>> ReceiveCoreAsync(int maxLength, CancellationToken ct)
+    {
         var buffer = new byte[maxLength];
         var (err, transferred) = await reader!.ReadAsync(buffer, DefaultTimeoutMs).WaitAsync(ct).ConfigureAwait(false);
-        ThrowIfTransferFailed(err, sending: false);
-        return buffer.AsMemory(0, transferred);
+        return MapTransferError(err, sending: false)
+            .Match(
+                Some: e => Left<NordError, ReadOnlyMemory<byte>>(e),
+                None: () => Right<NordError, ReadOnlyMemory<byte>>(buffer.AsMemory(0, transferred)));
     }
 
-    private void ThrowIfTransferFailed(Error err, bool sending)
+    private Option<NordError> MapTransferError(LibUsbError err, bool sending)
     {
-        if (err == Error.Success) return;
-        if (err is Error.NoDevice or Error.Io or Error.NotFound)
+        if (err == LibUsbError.Success) return None;
+        var op = sending ? "send" : "receive";
+        if (err is LibUsbError.NoDevice or LibUsbError.Io or LibUsbError.NotFound)
         {
             RaiseDisconnect();
-            throw new NordDeviceDisconnectedException(
-                $"Device disconnected during {(sending ? "send" : "receive")} (libusb {err}).");
+            return Some<NordError>(new NordError.DeviceDisconnected(
+                $"Device disconnected during {op} (libusb {err})."));
         }
-        throw new InvalidOperationException(
-            $"libusb transfer failed during {(sending ? "send" : "receive")}: {err}");
+        if (err == LibUsbError.Timeout)
+            return Some<NordError>(new NordError.TransferTimeout(
+                $"USB {op} timed out after {DefaultTimeoutMs} ms — command may not be supported yet."));
+        return Some<NordError>(new NordError.DeviceDisconnected($"USB {op} failed: {err}."));
     }
 
-    private void EnsureConnected()
+    private static Either<NordError, (byte outAddr, byte inAddr)> FindBulkEndpoints(IUsbDevice dev)
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
-        if (!IsConnected)
-            throw new InvalidOperationException("Device not connected. Call ConnectAsync first.");
-    }
-
-    private void RaiseDisconnect() => Disconnected?.Invoke(this, EventArgs.Empty);
-
-    private static (byte outAddr, byte inAddr) FindBulkEndpoints(IUsbDevice dev)
-    {
-        // Mirror nord_api.py: scan interface 0's endpoints for the bulk OUT and bulk IN pair.
-        // Expected on the Nord Stage 3: 0x03 OUT, 0x82 IN.
         foreach (var cfg in dev.Configs)
-        {
             foreach (var intf in cfg.Interfaces)
             {
-                byte? outAddr = null;
-                byte? inAddr = null;
+                byte? outAddr = null, inAddr = null;
                 foreach (var ep in intf.Endpoints)
                 {
-                    // Attributes low 2 bits: 0=control, 1=iso, 2=bulk, 3=interrupt.
-                    var isBulk = (ep.Attributes & 0x03) == 0x02;
-                    if (!isBulk) continue;
+                    if ((ep.Attributes & 0x03) != 0x02) continue;
                     var addr = ep.EndpointAddress;
-                    var isIn = (addr & 0x80) != 0;
-                    if (isIn) inAddr ??= addr;
+                    if ((addr & 0x80) != 0) inAddr ??= addr;
                     else outAddr ??= addr;
                 }
                 if (outAddr.HasValue && inAddr.HasValue)
                     return (outAddr.Value, inAddr.Value);
             }
-        }
-        throw new NordDeviceDisconnectedException("No bulk IN/OUT endpoint pair found on device.");
+        return new NordError.NoEndpointsFound();
     }
+
+    private void RaiseDisconnect() => Disconnected?.Invoke(this, EventArgs.Empty);
 
     public void Dispose()
     {
@@ -148,9 +169,7 @@ public sealed class LibUsbNordDevice : INordDevice
             if (device is not null)
             {
                 if (claimedInterface)
-                {
                     try { device.ReleaseInterface(InterfaceNumber); } catch { /* best effort */ }
-                }
                 try { device.Close(); } catch { /* best effort */ }
             }
         }

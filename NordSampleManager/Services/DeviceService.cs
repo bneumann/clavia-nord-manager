@@ -1,3 +1,4 @@
+using LanguageExt;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Transport;
 
@@ -28,22 +29,24 @@ public sealed class DeviceService : IDisposable
 
         var newDevice = new LibUsbNordDevice();
         var newClient = new NordClient(newDevice);
-        try
-        {
-            await newClient.ConnectAsync(ct);
-            device = newDevice;
-            client = newClient;
-            newDevice.Disconnected += OnDeviceDisconnected;
-            LastError = null;
-            SetState(ConnectionState.Connected);
-        }
-        catch (Exception ex)
-        {
-            LastError = ex.Message;
-            newClient.Dispose();
-            newDevice.Dispose();
-            SetState(ConnectionState.Failed);
-        }
+
+        var result = await newClient.ConnectAsync(ct).ToEither();
+        result.Match(
+            Right: _ =>
+            {
+                device = newDevice;
+                client = newClient;
+                newDevice.Disconnected += OnDeviceDisconnected;
+                LastError = null;
+                SetState(ConnectionState.Connected);
+            },
+            Left: err =>
+            {
+                LastError = err.Message;
+                newClient.Dispose();
+                newDevice.Dispose();
+                SetState(ConnectionState.Failed);
+            });
     }
 
     private void OnDeviceDisconnected(object? sender, EventArgs e)

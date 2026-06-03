@@ -1,10 +1,19 @@
 using System.Buffers.Binary;
 using System.Text;
+using LanguageExt;
+using static LanguageExt.Prelude;
+using NordSampleManager.Protocol.Commands;
 
 namespace NordSampleManager.Protocol.Framing;
 
 public static class MessageParser
 {
+    /// <summary>Functional variant of <see cref="TryParse"/> — returns Left on malformed frames.</summary>
+    public static Either<NordError, NordMessage> Parse(ReadOnlyMemory<byte> frame) =>
+        TryParse(frame, out var msg)
+            ? Right<NordError, NordMessage>(msg)
+            : Left<NordError, NordMessage>(new NordError.ParseFailed("Malformed frame: unexpected length or truncation."));
+
     public static bool TryParse(ReadOnlyMemory<byte> frame, out NordMessage message)
     {
         message = default;
@@ -94,6 +103,50 @@ public static class MessageParser
         return results;
     }
 
+    /// <summary>
+    /// Decode a Param2=0x1f item-metadata payload (response to QueryItem=0x21).
+    /// Payload layout (all big-endian):
+    ///   [8..12]  echoed index, [12..16] file size,
+    ///   [16..20] file type ASCII ("ns3f","npno","nsmp","ns3y","ns3s"),
+    ///   [20..24] version×100, [28..32] category, [32..36] name length, [36+] name.
+    /// </summary>
+    /// <summary>Functional variant of <see cref="TryParseItemData"/> — returns None on malformed payloads.</summary>
+    public static Option<ItemData> ParseItemData(ReadOnlyMemory<byte> payload) =>
+        TryParseItemData(payload, out var data) ? Some(data) : None;
+
+    public static bool TryParseItemData(ReadOnlyMemory<byte> payload, out ItemData data)
+    {
+        data = default;
+        var span = payload.Span;
+        if (span.Length < 40) return false;
+
+        var fileType = Encoding.ASCII.GetString(span.Slice(16, 4));
+        var versionRaw = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(20, 4));
+        var categoryField = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(28, 4));
+        var nameLen = (int)BinaryPrimitives.ReadUInt32BigEndian(span.Slice(32, 4));
+        if (nameLen <= 0 || 36 + nameLen > span.Length) return false;
+
+        data = new ItemData(
+            Encoding.ASCII.GetString(span.Slice(36, nameLen)),
+            fileType,
+            versionRaw / 100,
+            versionRaw % 100,
+            categoryField);
+        return true;
+    }
+
+    /// <summary>
+    /// Returns true when the message is the end-of-container sentinel for item queries.
+    /// Param2=0x20 with 0xFFFFFFFF at payload[4..8].
+    /// </summary>
+    public static bool IsEndMarker(NordMessage msg)
+    {
+        if (msg.Param2 != NordCommands.ItemResponseEndMarker) return false;
+        var span = msg.Payload.Span;
+        return span.Length >= 8
+            && BinaryPrimitives.ReadUInt32BigEndian(span.Slice(4, 4)) == 0xFFFF_FFFFu;
+    }
+
     private static bool IsPrintableAscii(ReadOnlySpan<byte> bytes)
     {
         foreach (var b in bytes)
@@ -103,3 +156,14 @@ public static class MessageParser
 }
 
 public readonly record struct StringRecord(int Offset, uint Id, string Value);
+
+/// <summary>Decoded item metadata from a Param2=0x1f response.</summary>
+public readonly record struct ItemData(
+    string Name,
+    string FileType,
+    int VersionMajor,
+    int VersionMinor,
+    uint CategoryField)
+{
+    public string Version => $"{VersionMajor}.{VersionMinor:D2}";
+}
