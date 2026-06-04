@@ -26,9 +26,9 @@ All Nord USB messages share this big-endian frame:
 
 Payload string records use the pattern `5 zero bytes + 4-byte ID + 4-byte length + ASCII`. Sound-type markers appear at payload offset 16–20 (`npno`=Piano, `nsmp`=Sample, `ns3f`=User, `ns3s`=Songs, `ns3y`=Synth).
 
-USB endpoints used by the device: bulk OUT `0x03` for host→device commands, bulk IN `0x82` for device→host responses (see `README.md` for the full endpoint map). `nord_api.py` discovers the right endpoints by scanning attributes rather than hardcoding addresses.
+USB endpoints used by the device: bulk OUT `0x03` for host→device commands, bulk IN `0x82` for device→host responses (see `PROTOCOL.md` for the full endpoint map). `nord_api.py` discovers the right endpoints by scanning attributes rather than hardcoding addresses.
 
-The full set of known query types and payload meanings (piano categories, banks A–P, banks 1–8, samp lib, programs, songs, piano detail) lives in `README.md` — consult it before adding or renaming any command/payload constants.
+The full set of known query types and payload meanings (piano categories, banks A–P, banks 1–8, samp lib, programs, songs, piano detail, download, upload, delete, swap, rename) lives in `PROTOCOL.md` — consult it before adding or renaming any command/payload constants.
 
 ## Pipeline and how the pieces fit together
 
@@ -59,7 +59,7 @@ Activate the Python virtualenv before running anything Python (only `pyusb` is i
 source .venv/bin/activate
 ```
 
-Regenerate `tmp.txt` from a pcapng (command lives in `README.md`):
+Regenerate `tmp.txt` from a pcapng:
 
 ```bash
 tshark -r detection+readlibrary.pcapng \
@@ -95,7 +95,7 @@ There is no linter or formatter configured beyond `.editorconfig`.
 ## When extending the protocol knowledge
 
 - New command/payload constants should be added in both `nord_api.py` (`NordProtocol` class) and the lookup dictionaries in `interpret_protocol.py` (`COMMAND_NAMES`, `QUERY_TYPES`) so live and offline tooling agree.
-- Document new findings in `README.md` under the existing `## Protokoll GET` / `## Program` / `## Pianos` style — the README is the canonical protocol notebook for this project.
+- Document new findings in `PROTOCOL.md` — that is the canonical protocol notebook for this project.
 
 ## Coding guidelines
 Use the .editorconfig for coding guidelines

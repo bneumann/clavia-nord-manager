@@ -13,6 +13,6 @@ public sealed record ProgramInfo(
     uint CategoryCode,
     string? PianoA = null)
 {
-    /// <summary>Physical location on keyboard: row*10+col (e.g. item 0 → 11, item 4 → 15, item 5 → 21).</summary>
+    /// <summary>Physical location on keyboard: The programs appear in groups of 5 (e.g. item 0 → 11, item 4 → 15, item 5 → 21).</summary>
     public int Location => (ItemIndex / 5 + 1) * 10 + (ItemIndex % 5 + 1);
 }
