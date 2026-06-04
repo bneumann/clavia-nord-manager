@@ -28,6 +28,10 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? detailHeader;
     [ObservableProperty] private string? detailBody;
+    [ObservableProperty] private bool   storageVisible;
+    [ObservableProperty] private double storageUsedFraction;
+    [ObservableProperty] private string storageUsedText = "";
+    [ObservableProperty] private string storageFreeText = "";
 
     partial void OnIsBusyChanged(bool value) => UpdateStatus();
 
@@ -52,6 +56,8 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedCategory = Categories[0];
         UpdateStatus();
     }
+
+    partial void OnSelectedCategoryChanged(CategoryViewModel? value) => UpdateStorageInfo();
 
     private void OnCategoryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -384,10 +390,30 @@ public partial class MainWindowViewModel : ObservableObject
             await library.LoadAsync(deviceService.Client!);
             SelectedCategory ??= Categories[0];
             UpdateStatus();
+            UpdateStorageInfo();
         }
         catch (NordException ex)
         {
             StatusText = $"Load error: {ex.Message}";
+        }
+    }
+
+    private void UpdateStorageInfo()
+    {
+        if (SelectedCategory?.Category == LibraryCategory.Piano
+            && library.PianoStorageFreeBytes > 0)
+        {
+            var used  = library.PianoStorageUsedBytes;
+            var free  = library.PianoStorageFreeBytes;
+            var total = used + free;
+            StorageUsedFraction = total > 0 ? (double)used / total : 0;
+            StorageUsedText = $"Used: {used  / (1024.0 * 1024 * 1024):F1} GiB";
+            StorageFreeText = $"Free: {free  / (1024.0 * 1024 * 1024):F1} GiB";
+            StorageVisible  = true;
+        }
+        else
+        {
+            StorageVisible = false;
         }
     }
 

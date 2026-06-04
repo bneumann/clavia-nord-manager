@@ -31,6 +31,9 @@ public sealed class NordClient : IDisposable
     /// <summary>Last raw bytes returned by the device for CMD_INIT, for protocol debugging.</summary>
     public ReadOnlyMemory<byte> RawInitResponse { get; private set; }
 
+    /// <summary>Piano library storage stats, populated after <see cref="QueryAllPianoNamesAsync"/> completes.</summary>
+    public LibraryStorageInfo PianoStorage { get; private set; }
+
     public bool IsConnected => device.IsConnected;
 
     public async Task ConnectAsync(CancellationToken ct = default)
@@ -52,17 +55,17 @@ public sealed class NordClient : IDisposable
     public Task<IReadOnlyList<string>> QueryPianoNamesAsync(CancellationToken ct = default) =>
         ListQueryAsync(NordCommands.PianoLibraryId, ct);
 
-    public Task<IReadOnlyList<string>> QueryBank1Async(CancellationToken ct = default) =>
-        ListQueryAsync(NordCommands.ListBank1, ct);
+    public Task<IReadOnlyList<string>> QuerySongsFlatAsync(CancellationToken ct = default) =>
+        ListQueryAsync(NordCommands.ListSongsFlat, ct);
 
-    public Task<IReadOnlyList<string>> QueryBank2Async(CancellationToken ct = default) =>
-        ListQueryAsync(NordCommands.ListBank2, ct);
+    public Task<IReadOnlyList<string>> QueryLiveBuffersAsync(CancellationToken ct = default) =>
+        ListQueryAsync(NordCommands.ListLiveBuffers, ct);
 
-    public Task<IReadOnlyList<string>> QueryBank3Async(CancellationToken ct = default) =>
-        ListQueryAsync(NordCommands.ListBank3, ct);
+    public Task<IReadOnlyList<string>> QueryProgramsFlatAsync(CancellationToken ct = default) =>
+        ListQueryAsync(NordCommands.ListProgramsFlat, ct);
 
-    public Task<IReadOnlyList<string>> QueryBank4Async(CancellationToken ct = default) =>
-        ListQueryAsync(NordCommands.ListBank4, ct);
+    public Task<IReadOnlyList<string>> QuerySongsV2Async(CancellationToken ct = default) =>
+        ListQueryAsync(NordCommands.ListSongsV2, ct);
 
     public Task<IReadOnlyList<string>> QuerySampLibAsync(CancellationToken ct = default) =>
         ListQueryAsync(NordCommands.ListSampLib, ct);
@@ -181,7 +184,7 @@ public sealed class NordClient : IDisposable
             Location:      (int)item,
             Name:          data.Name,
             Version:       $"{data.VersionMajor}.{data.VersionMinor:D2}",
-            SizeBytes:     0,
+            SizeBytes:     (long)data.DataSize,
             RawPayload:    []);
     }
 
@@ -190,7 +193,22 @@ public sealed class NordClient : IDisposable
         var libPayload = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(libPayload, libraryId);
         await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct).ConfigureAwait(false);
-        await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct).ConfigureAwait(false);
+        var infoRaw = await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibraryInfo, libPayload, ct).ConfigureAwait(false);
+
+        if (libraryId == NordCommands.PianoLibraryId)
+            PianoStorage = ParsePianoStorageInfo(infoRaw);
+    }
+
+    // LibraryInfoAck for pianos: payload[8..11]=used_blocks, payload[16..19]=free_blocks (128 KiB each).
+    private static LibraryStorageInfo ParsePianoStorageInfo(ReadOnlyMemory<byte> raw)
+    {
+        if (!MessageParser.TryParse(raw, out var msg) || msg.Payload.Length < 20)
+            return default;
+        const long blockSize = 128 * 1024;
+        var span = msg.Payload.Span;
+        var usedBlocks = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(8,  4));
+        var freeBlocks = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(16, 4));
+        return new LibraryStorageInfo(FreeBytes: freeBlocks * blockSize, UsedBytes: usedBlocks * blockSize);
     }
 
     private async Task<IteratorStateData> OpenBankAsync(uint bankIndex, CancellationToken ct)

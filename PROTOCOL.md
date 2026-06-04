@@ -126,17 +126,21 @@ Response: `D→H p2=0x03 payload=[library_id, count, {name_len, name, capacity}�
 
 Response payload contains a length-prefixed string list. Use `ScanLengthPrefixedStrings` to extract names.
 
-| library_id | Returns                                      |
-|------------|----------------------------------------------|
-| `0x01`     | Piano categories: Grand, Upright, Electric, Clav/Hps, Digital, Layer |
-| `0x02`     | Bank 1 (single entry "Bank 1", capacity ?)   |
-| `0x03`     | Bank 1 (Grand category detail, count 20)     |
-| `0x04`     | Bank 1                                       |
-| `0x05`     | Samp Lib                                     |
-| `0x06`     | Bank 1                                       |
-| `0x07`     | Banks A–P (16 entries, 25 slots each)        |
-| `0x08`     | Banks 1–8 (Songs / Synths v1, 50 slots each) |
-| `0x09`     | Banks 1–8 (Songs / Synths v2, 50 slots each) |
+Response payload structure: `[reserved(4)][library_id(4)][count(1)] { [name_len(4)][name(N)][capacity(4)] }…`
+
+| library_id | count | Name(s)              | Capacity | Notes |
+|------------|-------|----------------------|----------|-------|
+| `0x01`     | 6     | Grand, Upright, Electric, Clav/Hps, Digital, Layer | 20 each | Piano categories |
+| `0x02`     | 1     | "Bank 1"             | 100      | Likely Songs (flat view) |
+| `0x03`     | 1     | "Bank 1"             | 9        | Likely Live buffers (Stage 3 has 9 Live slots) |
+| `0x04`     | 1     | "Bank 1"             | 400      | Likely Programs as flat single bank (16×25=400) |
+| `0x05`     | 1     | "Samp Lib"           | 400      | Sample library |
+| `0x06`     | 1     | "Bank 1"             | 100      | Likely Songs v2 (same shape as 0x02; purpose unclear) |
+| `0x07`     | 16    | "Bank A"–"Bank P"    | 25 each  | Programs (ns3f) |
+| `0x08`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Songs / Synths v1 |
+| `0x09`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Songs / Synths v2 |
+
+IDs `0x02`, `0x03`, `0x04`, `0x06` all return a single entry named `"Bank 1"` — the names are identical, only the capacity distinguishes them. The `"Bank 1"` label is what the device returns; the Notes column above is inferred from capacity values and not confirmed from captures.
 
 ### Library catalog (Param2 = 0x00 / response 0x01)
 
@@ -160,10 +164,22 @@ H→D  p2=0x04  payload=[library_id: uint32 BE]
 D→H  p2=0x05  payload=[0, library_id]
 
 H→D  p2=0x08  payload=[library_id: uint32 BE]
-D→H  p2=0x09  payload=[0, total_count, size1, size2, 0, flags]
+D→H  p2=0x09  payload=[reserved(4), total_count(4), storage_a(4), storage_b(4), storage_free_blocks(4), flags(4)]
 ```
 
-`total_count` is the number of items in the library.
+`total_count` is the number of items currently stored in the library.
+
+`storage_total_kb` / `storage_used_kb` — interpretation depends on library type:
+
+- **Program-type libraries (0x07–0x0b):** all return identical values for these fields regardless of per-library item count, confirming they reflect a **shared flash partition** (e.g. 4049 KB total / 4015 KB used on the test device). Unit is KB; 327 programs × ~12 KB/file ≈ 3.9 MB matches 4015 KB used.
+- **Sample-heavy libraries (Pianos 0x01, SampLib 0x05):** values are much larger and the unit is **128 KiB allocation blocks**. `storage_total_kb` = used blocks (e.g. 15599 × 128 KiB = 1949.9 MiB for pianos); `storage_used_kb` field is not applicable here — see `sample_storage_mib` below. **Not confirmed** — a second dump from a device with different content would verify.
+
+`sample_storage_mib` — free space in 128 KiB allocation blocks, only meaningful for sample-heavy libraries. Confirmed: 550 blocks × 128 KiB = 68.75 MiB, displayed as "69.0 MB" in Nord Sound Manager (which shows MiB labelled as MB). For program-type libraries this field is 0.
+
+`flags` observed values:
+- `0x08` — read-only library (Pianos, Live buffers; factory content, no delete/rename)
+- `0x04` — Samp Lib and flat-view Song libraries
+- `0x40` — writable program-type libraries (Programs, Songs v1/v2, Synths, Settings); these are exactly the libraries that support delete, swap, rename, upload
 
 | library_id | Library          | Item file type |
 |------------|------------------|----------------|
@@ -222,7 +238,7 @@ Offset  Size  Field
 0       4     0 (reserved)
 4       4     bank_id (uint32 BE)
 8       4     item_index (uint32 BE)
-12      4     file_id — unique identifier for this item
+12      4     file_size_bytes — raw file size in bytes (used as transfer length in download)
 16      4     file_type ASCII: "npno" piano | "ns3f" program | "ns3l" live | "ns3t" settings | "nsmp" sample
 20      4     version × 100 (uint32 BE)  e.g. 0x0276 = 630 → "6.30"
 24      4     hash / timestamp
@@ -232,8 +248,10 @@ Offset  Size  Field
 36+N    4     (additional fields: timestamp, flags)
 ```
 
+**Note on size display:** The Nord Sound Manager displays `file_size_bytes / (1024²)` and labels the result "MB" — i.e. it shows MiB as MB. Example: White Grand XL = 213,542,620 bytes = 203.7 MiB, displayed as "203.7 MB".
+
 **Examples:**
-- Piano item 0: `file_type=npno, version=0x0276 (6.30), name="White Grand XL 6.3"`
+- Piano item 0: `file_type=npno, version=0x0276 (6.30), file_size=213,542,620 bytes (203.7 MiB), name="White Grand XL 6.3"`
 - Program item 0, bank 0: `file_type=ns3f, version=0x0130 (3.04), name="Royal Grand 3D"`
 
 ---

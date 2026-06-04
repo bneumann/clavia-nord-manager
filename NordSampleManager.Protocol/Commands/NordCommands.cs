@@ -63,13 +63,15 @@ public static class NordCommands
     public const uint ProgressNotify  = 0x0000002c;  // D→H progress notification (emitted 2-3× before real ack)
 
     // Payload selectors for the "list banks" query (Param2 = 0x02).
-    public const uint ListPianoCategories = 0x00000001;
-    public const uint ListBank1 = 0x00000002;
-    public const uint ListBank2 = 0x00000003;
-    public const uint ListBank3 = 0x00000004;
-    public const uint ListSampLib = 0x00000005;
-    public const uint ListBank4 = 0x00000006;
-    public const uint ListBanksAtoP = 0x00000007;
-    public const uint ListBanks1to8V1 = 0x00000008;
-    public const uint ListBanks1to8V2 = 0x00000009;
+    // Capacities from captures: 0x02=100, 0x03=9, 0x04=400, 0x06=100 — all return name "Bank 1".
+    // 0x03/0x04/0x06 purposes inferred from capacity; not confirmed from captures.
+    public const uint ListPianoCategories  = 0x00000001;  // 6 categories, capacity 20 each
+    public const uint ListSongsFlat        = 0x00000002;  // 1 bank "Bank 1", capacity 100
+    public const uint ListLiveBuffers      = 0x00000003;  // 1 bank "Bank 1", capacity 9 (Stage 3 has 9 Live slots)
+    public const uint ListProgramsFlat     = 0x00000004;  // 1 bank "Bank 1", capacity 400 (16×25)
+    public const uint ListSampLib          = 0x00000005;  // 1 bank "Samp Lib", capacity 400
+    public const uint ListSongsV2          = 0x00000006;  // 1 bank "Bank 1", capacity 100 (purpose unclear)
+    public const uint ListBanksAtoP        = 0x00000007;  // 16 banks A–P, capacity 25 each (Programs)
+    public const uint ListBanks1to8V1      = 0x00000008;  // 8 banks, capacity 50 each
+    public const uint ListBanks1to8V2      = 0x00000009;  // 8 banks, capacity 50 each
 }

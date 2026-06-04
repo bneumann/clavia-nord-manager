@@ -18,6 +18,9 @@ public sealed class SoundLibrary
     public ObservableCollection<BankEntry> SongBanks { get; } = new();
     public ObservableCollection<BankEntry> SynthBanks { get; } = new();
 
+    public long PianoStorageUsedBytes => PianoCategories.Sum(e => e.SizeBytes);
+    public long PianoStorageFreeBytes { get; private set; }
+
     public void Clear()
     {
         PianoCategories.Clear();
@@ -69,12 +72,14 @@ public sealed class SoundLibrary
         try
         {
             var pianos = await client.QueryAllPianoNamesAsync(ct);
+            PianoStorageFreeBytes = client.PianoStorage.FreeBytes;
             PianoCategories.Clear();
             foreach (var p in pianos)
             {
                 PianoCategories.Add(new BankEntry(p.Category, p.Location + 1, p.Name)
                 {
-                    Detail = $"Version: {p.Version}"
+                    Detail    = $"Version: {p.Version}\nSize:    {p.SizeBytes / (1024.0 * 1024.0):F1} MiB",
+                    SizeBytes = p.SizeBytes,
                 });
             }
         }
@@ -103,5 +108,6 @@ public sealed record BankEntry(string Kind, int Index, string Name)
     public SoundRef? Ref          { get; init; }
     public uint      CategoryCode { get; init; }
     public string?   CategoryName { get; init; }
+    public long      SizeBytes    { get; init; }
     public override string ToString() => $"{Kind} {Index}: {Name}";
 }

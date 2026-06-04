@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NordSampleManager.ViewModels"
+        xmlns:views="using:NordSampleManager.Views"
         x:Class="NordSampleManager.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="1100" Height="720"
@@ -33,20 +34,39 @@
     </Border>
 
     <Grid Grid.Row="1" ColumnDefinitions="200,*,320">
-      <!-- Left rail: category list -->
-      <ListBox Grid.Column="0"
-               Margin="8"
-               ItemsSource="{Binding Categories}"
-               SelectedItem="{Binding SelectedCategory}">
-        <ListBox.ItemTemplate>
-          <DataTemplate DataType="vm:CategoryViewModel">
-            <StackPanel Margin="2,4">
-              <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.7"/>
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
+      <!-- Left rail: category list + storage widget -->
+      <Grid Grid.Column="0" RowDefinitions="*,Auto">
+        <ListBox Grid.Row="0"
+                 Margin="8"
+                 ItemsSource="{Binding Categories}"
+                 SelectedItem="{Binding SelectedCategory}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:CategoryViewModel">
+              <StackPanel Margin="2,4">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.7"/>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Storage pie chart — visible when piano library stats are available -->
+        <Border Grid.Row="1"
+                IsVisible="{Binding StorageVisible}"
+                Margin="8,0,8,8" Padding="8"
+                BorderBrush="{DynamicResource SystemBaseLowColor}"
+                BorderThickness="1" CornerRadius="4">
+          <StackPanel Spacing="4">
+            <views:StoragePieControl
+                UsedFraction="{Binding StorageUsedFraction}"
+                Height="110"/>
+            <TextBlock Text="{Binding StorageUsedText}"
+                       FontSize="11" HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding StorageFreeText}"
+                       FontSize="11" HorizontalAlignment="Center" Opacity="0.7"/>
+          </StackPanel>
+        </Border>
+      </Grid>
 
       <!-- Center: list of entries in selected category -->
       <Border Grid.Column="1" Margin="0,8" BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1,0">
