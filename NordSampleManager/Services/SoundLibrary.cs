@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
 using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
+using SynthCat = NordSampleManager.Protocol.Records.SynthCategoryExtensions;
 
 namespace NordSampleManager.Services;
 
@@ -20,6 +21,9 @@ public sealed class SoundLibrary
 
     public long PianoStorageUsedBytes => PianoCategories.Sum(e => e.SizeBytes);
     public long PianoStorageFreeBytes { get; private set; }
+
+    public LibraryStorageInfo SynthStorage { get; private set; }
+    public LibraryStorageInfo SongStorage  { get; private set; }
 
     public void Clear()
     {
@@ -41,15 +45,11 @@ public sealed class SoundLibrary
         Clear();
 
         // Critical queries — failure throws and aborts the load.
-        var banks  = await client.QueryBanksAtoPAsync(ct);
-        var samp   = await client.QuerySampLibAsync(ct);
-        var songs  = await client.QueryBanks1to8V1Async(ct);
-        var synths = await client.QueryBanks1to8V2Async(ct);
+        var banks = await client.QueryBanksAtoPAsync(ct);
+        var samp  = await client.QuerySampLibAsync(ct);
 
         FillFromStrings(ProgramBanks, "Program bank", banks);
         FillFromStrings(SampLibBanks, "Samp Lib",     samp);
-        FillFromStrings(SongBanks,    "Song bank",    songs);
-        FillFromStrings(SynthBanks,   "Synth bank",   synths);
 
         // Best-effort: replace bank-name placeholders with rich per-item data.
         try
@@ -84,6 +84,47 @@ public sealed class SoundLibrary
             }
         }
         catch { /* keep placeholder data */ }
+
+        try
+        {
+            var synths = await client.QueryAllSynthsAsync(ct);
+            SynthStorage = client.SynthStorage;
+            SynthBanks.Clear();
+            foreach (var s in synths)
+            {
+                SynthBanks.Add(new BankEntry($"Bank {s.BankIndex + 1}", s.Location + 1, s.Name)
+                {
+                    Detail       = $"Version:  {s.Version}\nCategory: {SynthCat.DisplayName(s.CategoryCode)}",
+                    CategoryCode = s.CategoryCode,
+                    Ref          = new SoundRef(SoundItemType.Synth, s.BankIndex, s.Location),
+                });
+            }
+        }
+        catch { /* keep placeholder data */ }
+
+        try
+        {
+            var songs = await client.QueryAllSongsAsync(ct);
+            SongStorage = client.SongStorage;
+            SongBanks.Clear();
+            foreach (var s in songs)
+            {
+                SongBanks.Add(new BankEntry($"Bank {s.BankIndex + 1}", s.Location + 1, s.Name)
+                {
+                    Detail = BuildSongDetail(s),
+                    Ref    = new SoundRef(SoundItemType.Song, s.BankIndex, s.Location),
+                });
+            }
+        }
+        catch { /* keep placeholder data */ }
+    }
+
+    public static string BuildSongDetail(SongInfo s)
+    {
+        var lines = new List<string> { $"Version: {s.Version}" };
+        for (var i = 0; i < s.Programs.Count; i++)
+            lines.Add($"Prog {i + 1}:  {s.Programs[i]}");
+        return string.Join("\n", lines);
     }
 
     public static string BuildProgramDetail(ProgramInfo p)

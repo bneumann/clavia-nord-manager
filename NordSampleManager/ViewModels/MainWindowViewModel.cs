@@ -411,6 +411,22 @@ public partial class MainWindowViewModel : ObservableObject
             StorageFreeText = $"Free: {free  / (1024.0 * 1024 * 1024):F1} GiB";
             StorageVisible  = true;
         }
+        else if (SelectedCategory?.Category == LibraryCategory.Synth
+                 && library.SynthStorage.TotalBytes > 0)
+        {
+            StorageUsedFraction = library.SynthStorage.UsedFraction;
+            StorageUsedText = $"{library.SynthStorage.UsedBytes} / {library.SynthStorage.TotalBytes} slots used";
+            StorageFreeText = $"{library.SynthStorage.FreeBytes} free";
+            StorageVisible  = true;
+        }
+        else if (SelectedCategory?.Category == LibraryCategory.Song
+                 && library.SongStorage.TotalBytes > 0)
+        {
+            StorageUsedFraction = library.SongStorage.UsedFraction;
+            StorageUsedText = $"{library.SongStorage.UsedBytes} / {library.SongStorage.TotalBytes} slots used";
+            StorageFreeText = $"{library.SongStorage.FreeBytes} free";
+            StorageVisible  = true;
+        }
         else
         {
             StorageVisible = false;

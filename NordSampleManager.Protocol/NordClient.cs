@@ -34,6 +34,12 @@ public sealed class NordClient : IDisposable
     /// <summary>Piano library storage stats, populated after <see cref="QueryAllPianoNamesAsync"/> completes.</summary>
     public LibraryStorageInfo PianoStorage { get; private set; }
 
+    /// <summary>Synth library slot stats (UsedBytes=usedSlots, FreeBytes=freeSlots, TotalBytes=400), populated after <see cref="QueryAllSynthsAsync"/> completes.</summary>
+    public LibraryStorageInfo SynthStorage { get; private set; }
+
+    /// <summary>Song library slot stats (UsedBytes=usedSlots, FreeBytes=freeSlots, TotalBytes=400), populated after <see cref="QueryAllSongsAsync"/> completes.</summary>
+    public LibraryStorageInfo SongStorage { get; private set; }
+
     public bool IsConnected => device.IsConnected;
 
     public async Task ConnectAsync(CancellationToken ct = default)
@@ -166,6 +172,146 @@ public sealed class NordClient : IDisposable
         return results;
     }
 
+    public Task<IReadOnlyList<SynthInfo>> QueryAllSynthsAsync(CancellationToken ct = default) =>
+        QueryAllSynthsCoreAsync(ct);
+
+    private async Task<IReadOnlyList<SynthInfo>> QueryAllSynthsCoreAsync(CancellationToken ct)
+    {
+        await SetupLibraryIteratorAsync(NordCommands.SynthLibraryId, ct).ConfigureAwait(false);
+
+        var results = new List<SynthInfo>();
+        uint bankIndex = 0;
+        bool allDone = false;
+
+        while (!allDone)
+        {
+            var state = await OpenBankAsync(bankIndex, ct).ConfigureAwait(false);
+
+            while (!state.IsEndOfBank)
+            {
+                var synth = await FetchSynthItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+                if (synth is not null) results.Add(synth);
+                state = await AckItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+            }
+
+            bankIndex++;
+            switch (bankIndex)
+            {
+                case > 0 when state.Bank < bankIndex - 1:
+                case >= 8:
+                    allDone = true;
+                    break;
+            }
+        }
+
+        try { await CloseIteratorAsync(ct).ConfigureAwait(false); } catch { }
+        return results;
+    }
+
+    private async Task<SynthInfo?> FetchSynthItemAsync(uint bank, uint item, CancellationToken ct)
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), bank);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), item);
+        var raw = await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery,
+            NordCommands.RequestItemBasic, payload, ct).ConfigureAwait(false);
+        if (!MessageParser.TryParse(raw, out var msg) || !MessageParser.TryParseItemData(msg.Payload, out var data))
+            return null;
+        return new SynthInfo(
+            BankIndex:    (int)bank,
+            Location:     (int)item,
+            Name:         data.Name,
+            Version:      $"{data.VersionMajor}.{data.VersionMinor:D2}",
+            CategoryCode: data.CategoryField,
+            FileType:     data.FileType);
+    }
+
+    // LibraryInfoAck for synths/songs: payload[4..7]=total_count (occupied slots); total capacity = 8×50=400.
+    private static LibraryStorageInfo ParseSynthStorageInfo(ReadOnlyMemory<byte> raw) =>
+        ParseSlotStorageInfo(raw, totalSlots: 8 * 50);
+
+    private static LibraryStorageInfo ParseSongStorageInfo(ReadOnlyMemory<byte> raw) =>
+        ParseSlotStorageInfo(raw, totalSlots: 8 * 50);
+
+    private static LibraryStorageInfo ParseSlotStorageInfo(ReadOnlyMemory<byte> raw, long totalSlots)
+    {
+        if (!MessageParser.TryParse(raw, out var msg) || msg.Payload.Length < 8)
+            return default;
+        var usedSlots = (long)BinaryPrimitives.ReadUInt32BigEndian(msg.Payload.Span.Slice(4, 4));
+        return new LibraryStorageInfo(FreeBytes: totalSlots - usedSlots, UsedBytes: usedSlots);
+    }
+
+    public Task<IReadOnlyList<SongInfo>> QueryAllSongsAsync(CancellationToken ct = default) =>
+        QueryAllSongsCoreAsync(ct);
+
+    private async Task<IReadOnlyList<SongInfo>> QueryAllSongsCoreAsync(CancellationToken ct)
+    {
+        await SetupLibraryIteratorAsync(NordCommands.SongLibraryId, ct).ConfigureAwait(false);
+
+        var results = new List<SongInfo>();
+        uint bankIndex = 0;
+        bool allDone = false;
+
+        while (!allDone)
+        {
+            var state = await OpenBankAsync(bankIndex, ct).ConfigureAwait(false);
+
+            while (!state.IsEndOfBank)
+            {
+                var song = await FetchSongItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+                if (song is not null) results.Add(song);
+                state = await AckItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+            }
+
+            bankIndex++;
+            switch (bankIndex)
+            {
+                case > 0 when state.Bank < bankIndex - 1:
+                case >= 8:
+                    allDone = true;
+                    break;
+            }
+        }
+
+        try { await CloseIteratorAsync(ct).ConfigureAwait(false); } catch { }
+        return results;
+    }
+
+    private async Task<SongInfo?> FetchSongItemAsync(uint bank, uint item, CancellationToken ct)
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), bank);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), item);
+
+        var raw = await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery,
+            NordCommands.RequestItemBasic, payload, ct).ConfigureAwait(false);
+        if (!MessageParser.TryParse(raw, out var msg) || !MessageParser.TryParseItemData(msg.Payload, out var data))
+            return null;
+
+        IReadOnlyList<string> programs = [];
+        try
+        {
+            var detailRaw = await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery,
+                NordCommands.RequestItemDetail, payload, ct).ConfigureAwait(false);
+            if (MessageParser.TryParse(detailRaw, out var detailMsg))
+            {
+                programs = MessageParser.ScanLengthPrefixedStrings(detailMsg.Payload)
+                    .Where(s => s.Length >= 3)
+                    .ToList();
+            }
+        }
+        catch { /* best-effort */ }
+
+        return new SongInfo(
+            BankIndex:    (int)bank,
+            Location:     (int)item,
+            Name:         data.Name,
+            Version:      $"{data.VersionMajor}.{data.VersionMinor:D2}",
+            CategoryCode: data.CategoryField,
+            FileType:     data.FileType,
+            Programs:     programs);
+    }
+
     private async Task<Piano?> FetchPianoItemAsync(
         uint bank, uint item, IReadOnlyList<string> categories, CancellationToken ct)
     {
@@ -197,6 +343,10 @@ public sealed class NordClient : IDisposable
 
         if (libraryId == NordCommands.PianoLibraryId)
             PianoStorage = ParsePianoStorageInfo(infoRaw);
+        else if (libraryId == NordCommands.SynthLibraryId)
+            SynthStorage = ParseSynthStorageInfo(infoRaw);
+        else if (libraryId == NordCommands.SongLibraryId)
+            SongStorage = ParseSongStorageInfo(infoRaw);
     }
 
     // LibraryInfoAck for pianos: payload[8..11]=used_blocks, payload[16..19]=free_blocks (128 KiB each).

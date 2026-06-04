@@ -32,6 +32,8 @@ public static class NordCommands
     public const uint CloseIteratorAck  = 0x00000007;  // D→H
     public const uint ProgramLibraryId  = 0x00000007;  // library_id that selects Programs A-P (ns3f)
     public const uint PianoLibraryId    = 0x00000001;  // library_id that selects Pianos (npno); banks = categories
+    public const uint SynthLibraryId    = 0x00000008;  // library_id that selects Synths (ns3y); 8 banks × 50 slots
+    public const uint SongLibraryId     = 0x00000009;  // library_id that selects Songs  (ns3s); 8 banks × 50 slots
 
     // Download commands (confirmed from Upload Test2.pcapng, 2026-06-03).
     public const uint RequestDownload   = 0x0000000c;  // H→D: [bank, item]
@@ -72,6 +74,6 @@ public static class NordCommands
     public const uint ListSampLib          = 0x00000005;  // 1 bank "Samp Lib", capacity 400
     public const uint ListSongsV2          = 0x00000006;  // 1 bank "Bank 1", capacity 100 (purpose unclear)
     public const uint ListBanksAtoP        = 0x00000007;  // 16 banks A–P, capacity 25 each (Programs)
-    public const uint ListBanks1to8V1      = 0x00000008;  // 8 banks, capacity 50 each
-    public const uint ListBanks1to8V2      = 0x00000009;  // 8 banks, capacity 50 each
+    public const uint ListBanks1to8V1      = 0x00000008;  // 8 banks, capacity 50 each (Synths, ns3y)
+    public const uint ListBanks1to8V2      = 0x00000009;  // 8 banks, capacity 50 each (Songs, ns3s)
 }

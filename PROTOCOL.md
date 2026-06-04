@@ -137,8 +137,8 @@ Response payload structure: `[reserved(4)][library_id(4)][count(1)] { [name_len(
 | `0x05`     | 1     | "Samp Lib"           | 400      | Sample library |
 | `0x06`     | 1     | "Bank 1"             | 100      | Likely Songs v2 (same shape as 0x02; purpose unclear) |
 | `0x07`     | 16    | "Bank A"–"Bank P"    | 25 each  | Programs (ns3f) |
-| `0x08`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Songs / Synths v1 |
-| `0x09`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Songs / Synths v2 |
+| `0x08`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Synths (ns3y); confirmed from HTML export |
+| `0x09`     | 8     | "Bank 1"–"Bank 8"   | 50 each  | Songs (ns3s); confirmed from HTML export |
 
 IDs `0x02`, `0x03`, `0x04`, `0x06` all return a single entry named `"Bank 1"` — the names are identical, only the capacity distinguishes them. The `"Bank 1"` label is what the device returns; the Notes column above is inferred from capacity values and not confirmed from captures.
 
@@ -172,6 +172,7 @@ D→H  p2=0x09  payload=[reserved(4), total_count(4), storage_a(4), storage_b(4)
 `storage_total_kb` / `storage_used_kb` — interpretation depends on library type:
 
 - **Program-type libraries (0x07–0x0b):** all return identical values for these fields regardless of per-library item count, confirming they reflect a **shared flash partition** (e.g. 4049 KB total / 4015 KB used on the test device). Unit is KB; 327 programs × ~12 KB/file ≈ 3.9 MB matches 4015 KB used.
+- **Synth / Song libraries (0x08, 0x09):** `total_count` (word[1]) is the only meaningful field for storage tracking — it gives the number of occupied slots. Total capacity is fixed at 8 × 50 = 400 slots per library. Observed: Synths = 301/400, Songs = 14/400 on the test device.
 - **Sample-heavy libraries (Pianos 0x01, SampLib 0x05):** values are much larger and the unit is **128 KiB allocation blocks**. `storage_total_kb` = used blocks (e.g. 15599 × 128 KiB = 1949.9 MiB for pianos); `storage_used_kb` field is not applicable here — see `sample_storage_mib` below. **Not confirmed** — a second dump from a device with different content would verify.
 
 `sample_storage_mib` — free space in 128 KiB allocation blocks, only meaningful for sample-heavy libraries. Confirmed: 550 blocks × 128 KiB = 68.75 MiB, displayed as "69.0 MB" in Nord Sound Manager (which shows MiB labelled as MB). For program-type libraries this field is 0.
@@ -181,11 +182,13 @@ D→H  p2=0x09  payload=[reserved(4), total_count(4), storage_a(4), storage_b(4)
 - `0x04` — Samp Lib and flat-view Song libraries
 - `0x40` — writable program-type libraries (Programs, Songs v1/v2, Synths, Settings); these are exactly the libraries that support delete, swap, rename, upload
 
-| library_id | Library          | Item file type |
-|------------|------------------|----------------|
-| `0x01`     | Pianos (npno)    | `npno`         |
-| `0x07`     | Programs A–P     | `ns3f`         |
-| `0x0b`     | Settings / Live  | `ns3t` / `ns3l`|
+| library_id | Library          | Item file type  | Slot capacity |
+|------------|------------------|-----------------|---------------|
+| `0x01`     | Pianos (npno)    | `npno`          | 6 cats × 20   |
+| `0x07`     | Programs A–P     | `ns3f`          | 16 × 25 = 400 |
+| `0x08`     | Synths           | `ns3y`          | 8 × 50 = 400  |
+| `0x09`     | Songs            | `ns3s`          | 8 × 50 = 400  |
+| `0x0b`     | Settings / Live  | `ns3t` / `ns3l` | —             |
 
 ### Step 2 — Open a bank (category)
 
@@ -203,7 +206,7 @@ H→D  p2=0x1e  payload=[bank_id: uint32, item_index: uint32]
 D→H  p2=0x1f  payload=[see layout below]
 ```
 
-Optional: request full detail (programs only, gives program-level name and Piano/SampLib references):
+Optional: request full detail (programs and songs; gives Piano A reference for programs, program list for songs):
 
 ```
 H→D  p2=0x28  payload=[bank_id: uint32, item_index: uint32]
@@ -239,7 +242,7 @@ Offset  Size  Field
 4       4     bank_id (uint32 BE)
 8       4     item_index (uint32 BE)
 12      4     file_size_bytes — raw file size in bytes (used as transfer length in download)
-16      4     file_type ASCII: "npno" piano | "ns3f" program | "ns3l" live | "ns3t" settings | "nsmp" sample
+16      4     file_type ASCII: "npno" piano | "ns3f" program | "ns3y" synth | "ns3s" song | "nsmp" sample | "ns3l" live | "ns3t" settings
 20      4     version × 100 (uint32 BE)  e.g. 0x0276 = 630 → "6.30"
 24      4     hash / timestamp
 28      4     0xFFFFFFFF for pianos; varies for programs (category field)
@@ -256,7 +259,11 @@ Offset  Size  Field
 
 ---
 
-## p2=0x29 payload — program detail (Piano A / Piano B references)
+## p2=0x29 payload — item detail
+
+The layout differs by file type.
+
+### Programs (ns3f) — Piano A / Piano B references
 
 ```
 Offset  Size  Field
@@ -274,6 +281,32 @@ Offset  Size  Field
 **Note:** `piano_a_active = 0` does not mean the slot is empty — it means the program does not use the Piano A engine (e.g. Hammond organ programs). The patch name comes from p2=0x1f, not p2=0x29.
 
 **p2=0x29 appears twice in the payload** for the same item — once for Piano A and once for Piano B slot references.
+
+### Songs (ns3s) — program list
+
+Confirmed from `detection+readlibrary new version.pcapng`. Each song references up to 5 programs. The p2=0x29 response contains 5 variable-length slot records, each structured as:
+
+```
+Offset  Size  Field
+0       4     reserved (0)
+4       4     bank_id (song's bank index)
+8       4     item_index (song's location)
+12      4     program_count (always 5 for Nord Stage 3)
+
+Per program slot (repeating, variable size):
++0      1     0x01 (slot active flag)
++1      7     0x00…  (zeros)
++8      1     0x07   (library_id for Programs, always 0x07)
++9      7     file_ref (7-byte internal file hash/ID — the Nord Sound Manager
+               uses this to show Bank/Location by matching against loaded programs)
++16     1     name_len
++17     N     ASCII program name (N = name_len, no null terminator)
++17+N   1     0x00 (null terminator)
+```
+
+**Implementation note:** The program names are directly present in the payload. `ScanLengthPrefixedStrings` on the full p2=0x29 payload reliably extracts all 5 names (confirmed against all 14 songs in the capture — 0 false positives, exact matches against the HTML export).
+
+The 7-byte `file_ref` encodes a device-internal identifier. The Nord Sound Manager resolves it back to a program bank/location by cross-referencing the pre-loaded program list. This lookup is not needed when names are the goal.
 
 ---
 
@@ -450,14 +483,34 @@ The `p2=0x2c` ProgressNotify frames appear between WriteName and WriteNameAck �
 
 ## Known library IDs at a glance
 
-| ID     | p2=0x02 name  | Iterator content     | File type |
-|--------|---------------|----------------------|-----------|
-| `0x01` | Piano cats    | Individual pianos    | `npno`    |
-| `0x05` | Samp Lib      | Sample library       | `nsmp`    |
-| `0x07` | Banks A–P     | Programs             | `ns3f`    |
-| `0x08` | Banks 1–8 v1  | Songs / Synths       | `ns3s` / `ns3y` |
-| `0x09` | Banks 1–8 v2  | Songs / Synths       | `ns3s` / `ns3y` |
-| `0x0b` | (Settings)    | Settings / Live      | `ns3t` / `ns3l` |
+| ID     | p2=0x02 name  | Iterator content  | File type       | Capacity      | Confirmed |
+|--------|---------------|-------------------|-----------------|---------------|-----------|
+| `0x01` | Piano cats    | Individual pianos | `npno`          | 6 cats × 20   | ✓ capture |
+| `0x05` | Samp Lib      | Sample library    | `nsmp`          | 1 × 400       | partial   |
+| `0x07` | Banks A–P     | Programs          | `ns3f`          | 16 × 25 = 400 | ✓ capture |
+| `0x08` | Banks 1–8     | Synths            | `ns3y`          | 8 × 50 = 400  | ✓ HTML export + live |
+| `0x09` | Banks 1–8     | Songs             | `ns3s`          | 8 × 50 = 400  | ✓ HTML export + live |
+| `0x0b` | (Settings)    | Settings / Live   | `ns3t` / `ns3l` | —             | partial   |
+
+---
+
+## Synth category codes
+
+11 categories observed in the HTML export (`Nord Stage 3 Synth 2025-12-13.html`). Numeric codes from the `CategoryField` in p2=0x1f are **not yet confirmed** from a live device capture — the `SynthCategoryExtensions.DisplayName` in the C# code currently falls back to `Cat 0xNN`. Update this table once the codes are read from a connected device.
+
+| Category name   | Count (HTML) | Code |
+|-----------------|-------------|------|
+| Classic Synth   | 95          | TBD  |
+| Pad Synth       | 46          | TBD  |
+| Lead Synth      | 35          | TBD  |
+| Effects         | 33          | TBD  |
+| Bass Synth      | 32          | TBD  |
+| Piano           | 17          | TBD  |
+| Misc            | 15          | TBD  |
+| Rhythmic        | 13          | TBD  |
+| Tuned Percussion| 6           | TBD  |
+| Drums           | 6           | TBD  |
+| Analog Strings  | 3           | TBD  |
 
 ---
 

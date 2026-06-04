@@ -97,5 +97,21 @@ There is no linter or formatter configured beyond `.editorconfig`.
 - New command/payload constants should be added in both `nord_api.py` (`NordProtocol` class) and the lookup dictionaries in `interpret_protocol.py` (`COMMAND_NAMES`, `QUERY_TYPES`) so live and offline tooling agree.
 - Document new findings in `PROTOCOL.md` — that is the canonical protocol notebook for this project.
 
+## Deferred implementation notes
+
+### Clickable program names in song detail view
+
+When implementing clickable program names (song detail → navigate to / highlight the program in the Programs tab):
+
+**Do not match by name** — two programs can have identical names. The correct approach is file-ref matching:
+
+1. **Song side** (`p2=0x29` payload, per slot): bytes at slot-relative offset 8–14 are a 7-byte file reference. Byte 8 is always `0x07` (Programs library ID); bytes 9–14 are a partial file hash. Store these 7 bytes as `byte[] FileRef` in `SongInfo.Programs` (needs a new `SongProgramRef` record replacing the current `IReadOnlyList<string>`).
+
+2. **Program side** (`p2=0x1f` payload, offset 24–27): 4-byte `hash/timestamp` field. This is the matching field — the song's 7-byte file ref contains this hash in bytes 9–12 (confirmed pattern from `detection+readlibrary new version.pcapng`: slot `0x079cd51e b5…` matches program hash `0x9cd51e??`). Store the hash in `ProgramInfo`.
+
+3. **Lookup**: at display time, match `songSlot.FileRef[1..4]` against `program.FileHash` to find the exact `BankEntry` in `ProgramBanks`, then use its `Ref.Bank` / `Ref.Location` for navigation or display.
+
+The current implementation stores only `IReadOnlyList<string> Programs` (names only) in `SongInfo` and uses `ScanLengthPrefixedStrings` on the `p2=0x29` payload — sufficient for display but not for unambiguous lookup.
+
 ## Coding guidelines
 Use the .editorconfig for coding guidelines

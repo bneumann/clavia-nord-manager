@@ -4,5 +4,6 @@
       <Nullable>enable</Nullable>
       <TargetFramework>net10.0</TargetFramework>
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <PublishSingleFile>true</PublishSingleFile>
    </PropertyGroup>
 </Project>
