@@ -63,15 +63,19 @@ public partial class MainWindow : Window
             ?.DataContext as BankEntry;
     }
 
-    private async void OnSoundLibraryInstallRequested(object? sender, EventArgs e)
+    private async void OnTransferRequested(object? sender, EventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm) return;
-        var keyboardCode = KeyboardRegistry.TryGetApiCode(vm.DeviceProductId);
-        if (keyboardCode is null)
-        {
-            // Device not connected or unknown model
-            return;
-        }
-        await vm.InstallFromLibraryAsync(vm.SoundLibrary.SelectedItem, keyboardCode.Value);
+        var kb = KeyboardRegistry.TryGetApiCode(vm.DeviceProductId);
+        if (kb is null) return;
+        await vm.TransferToInstrumentAsync(vm.SoundLibrary.SelectedItem, kb.Value);
+    }
+
+    private async void OnSubstituteRequested(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var kb = KeyboardRegistry.TryGetApiCode(vm.DeviceProductId);
+        if (kb is null) return;
+        await vm.SubstituteSelectedSoundAsync(vm.SoundLibrary.SelectedItem, kb.Value);
     }
 }

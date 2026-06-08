@@ -44,30 +44,45 @@ public sealed class LibUsbNordDevice : INordDevice
         if (disposed) throw new NordException(new NordError.DeviceNotFound("Device is disposed."));
         if (IsConnected) return;
 
-        context = new UsbContext();
-        var found = context.Find(new UsbDeviceFinder { Vid = vid, Pid = pid });
-        if (found is null)
-            throw new NordException(new NordError.DeviceNotFound(
-                $"USB device {vid:x4}:{pid:x4} not found. Is the Nord plugged in?"));
-
-        found.Open();
-        if (found is UsbDevice concrete)
-            try { concrete.SetAutoDetachKernelDriver(true); } catch { /* not all platforms */ }
-
-        if (!found.ClaimInterface(InterfaceNumber))
+        try
         {
-            found.Close();
-            throw new NordException(new NordError.InterfaceClaimFailed(
-                $"Could not claim interface {InterfaceNumber}. Check udev rules (see README)."));
-        }
-        claimedInterface = true;
+            context = new UsbContext();
+            var found = context.Find(new UsbDeviceFinder { Vid = vid, Pid = pid });
+            if (found is null)
+                throw new NordException(new NordError.DeviceNotFound(
+                    $"USB device {vid:x4}:{pid:x4} not found. Is the Nord plugged in?"));
 
-        var (outAddr, inAddr) = FindBulkEndpoints(found);
-        bulkOutAddress = outAddr;
-        bulkInAddress  = inAddr;
-        writer = found.OpenEndpointWriter((WriteEndpointID)outAddr, EndpointType.Bulk);
-        reader = found.OpenEndpointReader((ReadEndpointID)inAddr, 4096, EndpointType.Bulk);
-        device = found;
+            found.Open();
+            if (found is UsbDevice concrete)
+                try { concrete.SetAutoDetachKernelDriver(true); } catch { /* not all platforms */ }
+
+            if (!found.ClaimInterface(InterfaceNumber))
+            {
+                found.Close();
+                throw new NordException(new NordError.InterfaceClaimFailed(
+                    $"Could not claim USB interface {InterfaceNumber}. " +
+                    $"The device may be in use by another application or the kernel driver. " +
+                    $"Check udev rules (see README)."));
+            }
+            claimedInterface = true;
+
+            var (outAddr, inAddr) = FindBulkEndpoints(found);
+            bulkOutAddress = outAddr;
+            bulkInAddress  = inAddr;
+            writer = found.OpenEndpointWriter((WriteEndpointID)outAddr, EndpointType.Bulk);
+            reader = found.OpenEndpointReader((ReadEndpointID)inAddr, 4096, EndpointType.Bulk);
+            device = found;
+        }
+        catch (NordException) { throw; }
+        catch (Exception ex)
+        {
+            // LibUsbDotNet can throw raw exceptions (e.g. on LIBUSB_ERROR_ACCESS when the
+            // device is held by another process). Convert to NordException so callers can
+            // display a clean error instead of crashing.
+            throw new NordException(new NordError.InterfaceClaimFailed(
+                $"USB device error: {ex.Message}. " +
+                $"Ensure no other application is using the Nord and check udev rules."));
+        }
     }
 
     public async Task SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct = default)

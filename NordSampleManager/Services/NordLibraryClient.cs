@@ -7,8 +7,9 @@ namespace NordSampleManager.Services;
 
 /// <summary>
 /// HTTP client for the nordkeyboards.com REST API.
-/// All URLs are relative to https://www.nordkeyboards.com.
-/// Keyboard codes (e.g. 54 for Nord Stage 3) are passed by callers via KeyboardRegistry.
+/// Piano and sample catalogs are embedded in Next.js pages. We fetch page 1 as HTML
+/// (to discover the buildId), then use the lightweight /_next/data/{buildId}/*.json
+/// API for all subsequent pages, running them in parallel.
 /// </summary>
 public sealed class NordLibraryClient(HttpClient http)
 {
@@ -20,19 +21,24 @@ public sealed class NordLibraryClient(HttpClient http)
 
     public async Task<IReadOnlyList<LibraryCatalogEntry>> GetPianoCatalogAsync(CancellationToken ct = default)
     {
-        var results = new List<LibraryCatalogEntry>();
-        int page = 1;
-        while (true)
-        {
-            var items = await FetchPageItemsAsync($"/sounds/piano-library/?page={page}", ct).ConfigureAwait(false);
-            if (items is null) break;
-            foreach (var item in items.OfType<JsonNode>())
-                results.Add(ParsePianoEntry(item));
+        // Page 1 via HTML — we need this to discover the buildId.
+        var html1 = await http.GetStringAsync("/sounds/piano-library/", ct).ConfigureAwait(false);
+        var (root1, buildId) = ParseNextData(html1);
+        if (root1 is null) return [];
 
-            var pagination = await FetchPaginationAsync($"/sounds/piano-library/?page={page}", ct).ConfigureAwait(false);
-            if (pagination is null || page >= pagination.Value.totalPages) break;
-            page++;
+        var results = ExtractItems(root1, ParsePianoEntry);
+        var totalPages = root1["pagination"]?["totalPages"]?.GetValue<int>() ?? 1;
+
+        if (totalPages > 1)
+        {
+            // Pages 2..N in parallel via the lightweight JSON endpoint.
+            var pageTasks = Enumerable.Range(2, totalPages - 1)
+                .Select(p => FetchNextDataAsync($"/sounds/piano-library.json", $"page={p}", buildId, ct));
+            var roots = await Task.WhenAll(pageTasks).ConfigureAwait(false);
+            foreach (var root in roots.OfType<JsonObject>())
+                results.AddRange(ExtractItems(root, ParsePianoEntry));
         }
+
         return results;
     }
 
@@ -40,19 +46,20 @@ public sealed class NordLibraryClient(HttpClient http)
     {
         try
         {
-            var json = await http.GetFromJsonAsync<JsonObject>($"/wt/api/main/v1/piano/downloads/{productCode}/", JsonOpts, ct).ConfigureAwait(false);
+            var json = await http.GetFromJsonAsync<JsonObject>(
+                $"/wt/api/main/v1/piano/downloads/{productCode}/", JsonOpts, ct).ConfigureAwait(false);
             if (json is null) return null;
 
             var options = json["downloads"]?.AsArray()
+                .OfType<JsonNode>()
                 .Select(d => new PianoDownloadOption(
-                    Size:        d!["size"]!.GetValue<string>(),
+                    Size:        d["size"]!.GetValue<string>(),
                     FileSize:    d["file_size"]!.GetValue<string>(),
                     DownloadUrl: d["download_url"]!.GetValue<string>(),
                     VersionName: d["version_name"]!.GetValue<string>()))
                 .ToList() ?? [];
 
             var compat = ParseCompatibleKeyboards(json["compatible_products"]?.AsArray());
-
             return new PianoDownloads(options, compat);
         }
         catch { return null; }
@@ -64,9 +71,10 @@ public sealed class NordLibraryClient(HttpClient http)
 
     public async Task<IReadOnlyList<LibraryCatalogEntry>> GetSampleCatalogAsync(CancellationToken ct = default)
     {
-        var items = await FetchPageItemsAsync("/sounds/sample-library/", ct).ConfigureAwait(false);
-        if (items is null) return [];
-        return items.OfType<JsonNode>().Select(ParseSampleEntry).ToList();
+        var html = await http.GetStringAsync("/sounds/sample-library/", ct).ConfigureAwait(false);
+        var (root, _) = ParseNextData(html);
+        if (root is null) return [];
+        return ExtractItems(root, ParseSampleEntry);
     }
 
     public async Task<IReadOnlyList<SampleInstrument>> GetSampleInstrumentsAsync(
@@ -76,8 +84,9 @@ public sealed class NordLibraryClient(HttpClient http)
         {
             var json = await http.GetFromJsonAsync<JsonObject>(accordionItemsUrl, JsonOpts, ct).ConfigureAwait(false);
             return json?["accordion_items"]?.AsArray()
+                .OfType<JsonNode>()
                 .Select(i => new SampleInstrument(
-                    Id:                  i!["id"]!.GetValue<int>(),
+                    Id:                  i["id"]!.GetValue<int>(),
                     Title:               i["title"]!.GetValue<string>(),
                     FileSize:            i["file_size"]!.GetValue<string>(),
                     Version:             i["latest_version"]!.GetValue<string>(),
@@ -90,14 +99,15 @@ public sealed class NordLibraryClient(HttpClient http)
     }
 
     // ----------------------------------------------------------------
-    // Compatibility check
+    // Compatibility
     // ----------------------------------------------------------------
 
     public async Task<CompatibleProducts?> GetCompatibleProductsAsync(int productCode, CancellationToken ct = default)
     {
         try
         {
-            var json = await http.GetFromJsonAsync<JsonObject>($"/wt/api/main/v1/compatible_products/{productCode}/", JsonOpts, ct).ConfigureAwait(false);
+            var json = await http.GetFromJsonAsync<JsonObject>(
+                $"/wt/api/main/v1/compatible_products/{productCode}/", JsonOpts, ct).ConfigureAwait(false);
             if (json is null) return null;
             return new CompatibleProducts(
                 Active: ParseCompatibleKeyboards(json["active_products"]?.AsArray()),
@@ -112,8 +122,8 @@ public sealed class NordLibraryClient(HttpClient http)
 
     /// <summary>
     /// Downloads a file from a relative path on nordkeyboards.com.
-    /// For sample instruments: substitute the keyboard code in the URL before calling
-    /// (replace the placeholder code with the actual connected keyboard's API code).
+    /// For sample instruments: substitute the keyboard code in the URL first via
+    /// <see cref="SubstituteKeyboardCode"/> before calling.
     /// </summary>
     public async Task<byte[]> DownloadFileAsync(
         string relativeUrl,
@@ -125,7 +135,7 @@ public sealed class NordLibraryClient(HttpClient http)
 
         var total = response.Content.Headers.ContentLength ?? -1L;
         await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        var ms = total > 0 ? new MemoryStream((int)total) : new MemoryStream();
+        var ms = total > 0 ? new MemoryStream((int)Math.Min(total, int.MaxValue)) : new MemoryStream();
 
         var buffer = new byte[81_920];
         long received = 0;
@@ -144,86 +154,110 @@ public sealed class NordLibraryClient(HttpClient http)
     // Private helpers
     // ----------------------------------------------------------------
 
-    private async Task<JsonArray?> FetchPageItemsAsync(string url, CancellationToken ct)
+    /// <summary>
+    /// Parses __NEXT_DATA__ from an HTML page.
+    /// Returns (componentProps root, buildId). buildId is null when not found.
+    /// </summary>
+    private static (JsonObject? root, string? buildId) ParseNextData(string html)
     {
-        try
-        {
-            var html = await http.GetStringAsync(url, ct).ConfigureAwait(false);
-            return ExtractNextDataItems(html);
-        }
-        catch { return null; }
-    }
+        var m = Regex.Match(html,
+            @"<script id=""__NEXT_DATA__"" type=""application/json"">(.*?)</script>",
+            RegexOptions.Singleline);
+        if (!m.Success) return (null, null);
 
-    private async Task<(int currentPage, int totalPages)?> FetchPaginationAsync(string url, CancellationToken ct)
-    {
-        try
-        {
-            var html = await http.GetStringAsync(url, ct).ConfigureAwait(false);
-            var root = ExtractNextDataRoot(html);
-            var pg = root?["pagination"];
-            if (pg is null) return null;
-            return (pg["currentPage"]!.GetValue<int>(), pg["totalPages"]!.GetValue<int>());
-        }
-        catch { return null; }
-    }
-
-    private static JsonArray? ExtractNextDataItems(string html)
-    {
-        var root = ExtractNextDataRoot(html);
-        var itemsNode = root?["items"];
-        return itemsNode as JsonArray;
-    }
-
-    private static JsonObject? ExtractNextDataRoot(string html)
-    {
-        var m = Regex.Match(html, @"<script id=""__NEXT_DATA__"" type=""application/json"">(.*?)</script>", RegexOptions.Singleline);
-        if (!m.Success) return null;
         var data = JsonNode.Parse(m.Groups[1].Value);
-        return data?["props"]?["pageProps"]?["componentProps"] as JsonObject;
+        var root = data?["props"]?["pageProps"]?["componentProps"] as JsonObject;
+        var buildId = data?["buildId"]?.GetValue<string>();
+        return (root, buildId);
+    }
+
+    /// <summary>
+    /// Fetches a Next.js server data JSON endpoint. Falls back to null on any error.
+    /// path: e.g. "/sounds/piano-library.json"
+    /// query: e.g. "page=2"
+    /// </summary>
+    private async Task<JsonObject?> FetchNextDataAsync(
+        string path, string? query, string? buildId, CancellationToken ct)
+    {
+        if (buildId is null) return null;
+        var url = $"/_next/data/{buildId}/sounds{path}" + (query is null ? "" : $"?{query}");
+        try
+        {
+            var json = await http.GetFromJsonAsync<JsonObject>(url, JsonOpts, ct).ConfigureAwait(false);
+            return json?["pageProps"]?["componentProps"] as JsonObject;
+        }
+        catch { return null; }
+    }
+
+    private static List<LibraryCatalogEntry> ExtractItems(JsonObject root, Func<JsonNode, LibraryCatalogEntry> parser)
+    {
+        var arr = root["items"] as JsonArray;
+        if (arr is null) return [];
+        return arr.OfType<JsonNode>().Select(parser).ToList();
     }
 
     private static LibraryCatalogEntry ParsePianoEntry(JsonNode item)
     {
         var cp = item["compatibleProducts"]?.GetValue<string>() ?? "";
         return new LibraryCatalogEntry(
-            Title:                item["title"]?.GetValue<string>() ?? "",
-            Description:          item["text"]?.GetValue<string>() ?? "",
-            PreviewMp3Url:        item["playerData"]?.GetValue<string?>(),
-            PianoDownloadsUrl:    item["pianoDownloads"]?.GetValue<string?>(),
-            AccordionItemsUrl:    null,
+            Title:                 item["title"]?.GetValue<string>() ?? "",
+            Description:           item["text"]?.GetValue<string>() ?? "",
+            PreviewMp3Url:         item["playerData"]?.GetValue<string?>(),
+            PianoDownloadsUrl:     item["pianoDownloads"]?.GetValue<string?>(),
+            AccordionItemsUrl:     null,
             CompatibleProductsUrl: cp,
-            LibraryType:          "Piano",
-            Tags:                 item["tags"]?.AsArray().Select(t => t?["tag"]?.GetValue<string>() ?? "").ToArray() ?? []);
+            LibraryType:           "Piano",
+            Tags:                  item["tags"]?.AsArray()
+                                       .OfType<JsonNode>()
+                                       .Select(t => t["tag"]?.GetValue<string>() ?? "")
+                                       .ToArray() ?? []);
     }
 
     private static LibraryCatalogEntry ParseSampleEntry(JsonNode item) =>
-        new(
-            Title:                item["title"]?.GetValue<string>() ?? "",
-            Description:          item["text"]?.GetValue<string>() ?? "",
-            PreviewMp3Url:        null,
-            PianoDownloadsUrl:    null,
-            AccordionItemsUrl:    item["accordionItems"]?.GetValue<string?>(),
+        new(Title:                 item["title"]?.GetValue<string>() ?? "",
+            Description:           item["text"]?.GetValue<string>() ?? "",
+            PreviewMp3Url:         null,
+            PianoDownloadsUrl:     null,
+            AccordionItemsUrl:     item["accordionItems"]?.GetValue<string?>(),
             CompatibleProductsUrl: item["compatibleProducts"]?.GetValue<string>() ?? "",
-            LibraryType:          "Sample",
-            Tags:                 []);
+            LibraryType:           "Sample",
+            Tags:                  []);
 
     private static List<CompatibleKeyboard> ParseCompatibleKeyboards(JsonArray? arr) =>
-        arr?.Select(k => new CompatibleKeyboard(
-            k!["label"]!.GetValue<string>(),
-            k["value"]!.GetValue<int>()))
-        .ToList() ?? [];
+        arr?.OfType<JsonNode>()
+            .Select(k => new CompatibleKeyboard(k["label"]!.GetValue<string>(), k["value"]!.GetValue<int>()))
+            .ToList() ?? [];
 
     /// <summary>
-    /// Replaces the keyboard code placeholder in a sample download URL template.
-    /// The template from the API contains a default keyboard code (e.g. "8"); this method
-    /// substitutes the connected keyboard's code (e.g. 54 for Nord Stage 3).
-    /// URL pattern: /wt/api/main/v1/download/sample_instruments_by_sound_version/{kbCode}/{id}/
+    /// Replaces the keyboard code in a sample download URL template.
+    /// The API returns URLs with a default code (e.g. "8"); substitute the connected keyboard's code.
+    /// Pattern: /download/sample_instruments_by_sound_version/{kbCode}/{id}/
     /// </summary>
-    public static string SubstituteKeyboardCode(string urlTemplate, int keyboardCode)
-    {
-        // Replace the numeric segment after "sound_version/"
-        return Regex.Replace(urlTemplate,
+    public static string SubstituteKeyboardCode(string urlTemplate, int keyboardCode) =>
+        Regex.Replace(urlTemplate,
             @"(?<=sample_instruments_by_sound_version/)\d+(?=/)",
             keyboardCode.ToString());
+
+    /// <summary>Parses a file-size string like "208.54 MB" into bytes. Returns 0 on failure.</summary>
+    public static long ParseFileSizeBytes(string fileSize)
+    {
+        var m = Regex.Match(fileSize.Trim(), @"^([\d.]+)\s*(KB|MB|GB)$", RegexOptions.IgnoreCase);
+        if (!m.Success || !double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var value))
+            return 0;
+        return m.Groups[2].Value.ToUpperInvariant() switch
+        {
+            "KB" => (long)(value * 1024),
+            "MB" => (long)(value * 1024 * 1024),
+            "GB" => (long)(value * 1024 * 1024 * 1024),
+            _    => 0,
+        };
+    }
+
+    /// <summary>Extracts the product code from a compatible_products URL.</summary>
+    public static int ExtractProductCode(string compatibleProductsUrl)
+    {
+        var parts = compatibleProductsUrl.TrimEnd('/').Split('/');
+        return int.TryParse(parts.LastOrDefault(), out var code) ? code : 0;
     }
 }

@@ -131,7 +131,8 @@
         <views:SoundLibraryPanel
             Margin="8"
             DataContext="{Binding SoundLibrary}"
-            InstallRequested="OnSoundLibraryInstallRequested"/>
+            TransferRequested="OnTransferRequested"
+            SubstituteRequested="OnSubstituteRequested"/>
       </Border>
     </Grid>
   </Grid>

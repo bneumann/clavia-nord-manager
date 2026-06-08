@@ -399,6 +399,8 @@ The host reassembles the data into a CBIN/ns3f container (44-byte header + raw d
 
 ### Upload program (confirmed from `Download Stevie Likes It To Nord.pcapng`)
 
+Programs are small (~12 KB), so the raw data fits in a single `SendFileData` message.
+
 ```
 H→D  p2=0x04  payload=[library_id=7]              LibrarySelect
 D→H  p2=0x05  payload=[0, library_id]              LibrarySelectAck
@@ -415,6 +417,56 @@ D→H  p2=0x0f  payload=[0, bank, item]              FinishTransferAck
 ```
 
 `crc32` is CRC-32 of the raw data (not the CBIN wrapper). `category` is the program category code (uint32 BE).
+
+### Install piano (confirmed from `Replace Silver Grand with Steinway from Online Library.pcapng`)
+
+Piano files can be 100–200+ MB and are always downloaded from nordkeyboards.com (library_id=1,
+`fileType="npno"`, `categoryCode=0xffffffff`). The raw data is sent in **32 726-byte chunks**.
+
+**Step 1 — Delete existing occupant (if slot is occupied):**
+
+```
+H→D  p2=0x04  payload=[library_id=1]              LibrarySelect
+D→H  p2=0x05  payload=[0, library_id]              LibrarySelectAck
+
+H→D  p2=0x14  payload=[categoryIndex, slot]        DeleteRequest
+D→H  p2=0x15  payload=[status, categoryIndex, slot] DeleteResponse
+
+D→H  CMD_STATUS p2=0x06  "Cleaning…"               (eat — unsolicited status string)
+D→H  CMD_STATUS p2=0x07  [0]                        (eat — done status)
+```
+
+**Step 2 — Flash compaction loop (always follows a piano delete):**
+
+```
+D→H  p2=0x22  payload=[total_steps u32]            FlashCompactNotify  (device-initiated)
+H→D  p2=0x23  payload=[0x00000000]                 FlashCompactAck     (no D→H reply)
+
+repeat until is_busy == 0:
+  H→D  p2=0x26  payload=[]                          FlashCompactPoll
+  D→H  p2=0x27  payload=[0, total_steps, offset, is_busy]  FlashCompactState
+```
+
+`is_busy` is word[3] of the p2=0x27 payload; loop exits when it equals `0`.
+Confirmed: 67 iterations for a 131 MB piano delete, ~1053 internal flash ops.
+
+**Step 3 — Upload new piano:**
+
+```
+H→D  p2=0x0a  payload=[categoryIndex, slot, totalSize, "npno", crc32, 0xffffffff, nameLen, name]
+                                                   UploadMetadata   (categoryCode = 0xffffffff)
+D→H  p2=0x0b  payload=[status, categoryIndex, slot]  UploadMetadataAck
+
+for each 32726-byte chunk (last chunk may be smaller):
+  H→D  p2=0x10  payload=[categoryIndex, slot, offset, chunkSize, ...chunk]  SendFileData
+  D→H  p2=0x11  payload=[status, categoryIndex, slot]  SendFileDataAck
+
+H→D  p2=0x0e  payload=[categoryIndex, slot]        FinishTransfer
+D→H  p2=0x0f  payload=[0, categoryIndex, slot]     FinishTransferAck
+```
+
+The piano file from nordkeyboards.com is a CBIN container (44-byte header + raw data).
+The `crc32` and `totalSize` fields are computed from the raw data after stripping the CBIN header.
 
 ### Rename program (confirmed from `Rename N11 pcapng`)
 
@@ -476,6 +528,10 @@ The `p2=0x2c` ProgressNotify frames appear between WriteName and WriteNameAck �
 | `0x28` | H→D       | RequestItemDetail | payload=[bank, item] (also QueryProgramOrSong in legacy use) |
 | `0x29` | D→H       | ItemDetailData    | program detail; see p2=0x29 layout |
 | `0x2c` | D→H       | ProgressNotify    | emitted during rename; keep reading until WriteNameAck |
+| `0x22` | D→H       | FlashCompactNotify| payload=[total_steps u32]; sent unsolicited after piano delete |
+| `0x23` | H→D       | FlashCompactAck   | payload=[0x00000000]; no D→H reply |
+| `0x26` | H→D       | FlashCompactPoll  | empty payload; host polls each compaction step |
+| `0x27` | D→H       | FlashCompactState | payload=[0, total, offset, is_busy]; is_busy=0 → done |
 | `0x33` | H→D       | EditItemOpen      | payload=[bank, item, category_code] |
 | `0x34` | D→H       | EditItemOpenAck   | |
 
@@ -486,7 +542,7 @@ The `p2=0x2c` ProgressNotify frames appear between WriteName and WriteNameAck �
 | ID     | p2=0x02 name  | Iterator content  | File type       | Capacity      | Confirmed |
 |--------|---------------|-------------------|-----------------|---------------|-----------|
 | `0x01` | Piano cats    | Individual pianos | `npno`          | 6 cats × 20   | ✓ capture |
-| `0x05` | Samp Lib      | Sample library    | `nsmp`          | 1 × 400       | partial   |
+| `0x05` | Samp Lib      | Sample library    | `nsmp`          | 1 × 400       | ✓ iterator confirmed |
 | `0x07` | Banks A–P     | Programs          | `ns3f`          | 16 × 25 = 400 | ✓ capture |
 | `0x08` | Banks 1–8     | Synths            | `ns3y`          | 8 × 50 = 400  | ✓ HTML export + live |
 | `0x09` | Banks 1–8     | Songs             | `ns3s`          | 8 × 50 = 400  | ✓ HTML export + live |
@@ -494,34 +550,67 @@ The `p2=0x2c` ProgressNotify frames appear between WriteName and WriteNameAck �
 
 ---
 
-## Synth category codes
+## Sound category codes
 
-11 categories observed in the HTML export (`Nord Stage 3 Synth 2025-12-13.html`). Numeric codes from the `CategoryField` in p2=0x1f are **not yet confirmed** from a live device capture — the `SynthCategoryExtensions.DisplayName` in the C# code currently falls back to `Cat 0xNN`. Update this table once the codes are read from a connected device.
+Category codes appear in the `CategoryField` at bytes [28–31] of the `p2=0x1f` (ItemBasicData)
+payload. Confirmed by cross-referencing `detection+readlibrary.pcapng` p2=0x1f payloads
+against the Windows Sound Manager HTML exports. The same 4-byte code space is shared by
+Synths, Sample instruments, and Pianos (where applicable).
 
-| Category name   | Count (HTML) | Code |
-|-----------------|-------------|------|
-| Classic Synth   | 95          | TBD  |
-| Pad Synth       | 46          | TBD  |
-| Lead Synth      | 35          | TBD  |
-| Effects         | 33          | TBD  |
-| Bass Synth      | 32          | TBD  |
-| Piano           | 17          | TBD  |
-| Misc            | 15          | TBD  |
-| Rhythmic        | 13          | TBD  |
-| Tuned Percussion| 6           | TBD  |
-| Drums           | 6           | TBD  |
-| Analog Strings  | 3           | TBD  |
+### Synth category codes
+
+| Category name    | Code         | Count (HTML) |
+|------------------|--------------|-------------|
+| Pad Synth        | `0x000a0001` | 46          |
+| Bass Synth       | `0x000a0003` | 32          |
+| Classic Synth    | `0x000a0004` | 95          |
+| Lead Synth       | `0x000a0007` | 35          |
+| Analog Strings   | `0x00090003` | 3           |
+| Piano            | `0x00080000` | 17          |
+| Tuned Percussion | `0x00070001` | 6           |
+| Rhythmic         | `0x00110000` | 13          |
+| Misc             | `0x000e0000` | 15          |
+| Effects          | `0x00040000` | 33          |
+| Drums            | `0x00020000` | 6           |
+
+### Sample library category codes
+
+| Category name    | Code         |
+|------------------|--------------|
+| Bass             | `0x00010000` |
+| Accordion/Harm   | `0x00030000` |
+| Guitar/Plucked   | `0x00050000` |
+| Organ            | `0x00060000` |
+| Tuned Percussion | `0x00070001` |
+| Piano            | `0x00080000` |
+| Solo Strings     | `0x00090001` |
+| Ensemble Strings | `0x00090002` |
+| Analog Strings   | `0x00090003` |
+| Bass Synth       | `0x000a0003` |
+| Classic Synth    | `0x000a0004` |
+| Lead Synth       | `0x000a0007` |
+| Choir            | `0x000b0000` |
+| Solo Brass       | `0x000c0001` |
+| Ensemble Brass   | `0x000c0002` |
+| Orchestral       | `0x000d0000` |
+| Misc             | `0x000e0000` |
+| Mellotron        | `0x00100000` |
 
 ---
 
 ## RE captures in this repo
 
+All captures are in `RE/captures/`.
+
 | File | Contents |
 |------|----------|
-| `detection+readlibrary.pcapng` | Initial discovery + list queries |
-| `detection+readlibrary new version.pcapng` | Newer Nord Sound Manager with full iterator enumeration |
-| `Upload Test2.pcapng` | Download (export) sequence |
-| `Download Stevie Likes It To Nord.pcapng` | Upload (import) sequence |
-| `Delete Stevie Likes It.pcapng` | Delete sequence |
-| `Swap Bank N22 with N21.pcapng` | Swap sequence |
+| `detection+readlibrary.pcapng` | Initial discovery + list queries + full iterator enumeration for all libraries |
+| `detection+readlibrary new version.pcapng` | Newer Nord Sound Manager — confirms iterator pattern; song detail with program refs |
+| `Upload Test2.pcapng` | Download (export) sequence for a program file |
+| `Download Stevie Likes It To Nord.pcapng` | Upload (import) sequence for a program file |
+| `Delete Stevie Likes It.pcapng` | Delete sequence for a program |
+| `Swap Bank N22 with N21.pcapng` | Swap sequence for two programs |
 | `Rename N11 pcapng` | Rename + category change sequence |
+| `Replace Silver Grand with Steinway from Online Library.pcapng` | Full piano install: delete + flash compaction (p2=0x22–0x27) + chunked upload (32 726-byte chunks, 4 228 total for 131 MB) |
+| `Relink Imperial to Steinway.pcapng` | p2=0x35/0x36 relink sequence (program slot → different piano); not yet implemented |
+| `Upload Calvinet D6.pcapng` | Piano upload (alternate example) |

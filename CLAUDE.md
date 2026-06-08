@@ -9,7 +9,7 @@ Reverse-engineering of the Clavia Nord Stage 3 USB protocol (vendor `0x0ffc`, pr
 1. **Offline analysis** of captured USB traffic (Wireshark `.pcapng` → hex dump → parsed messages) to deduce the protocol.
 2. **Live querying** of an attached Nord Stage 3 via `pyusb` to confirm hypotheses against the real device.
 
-A future "Nord Sample Manager" application (C#/.NET 10, currently a stub) is intended to be built on top of the protocol once it's understood.
+A "Nord Sample Manager" application (C#/.NET 10, Avalonia desktop) is being built on top of the confirmed protocol. It is an active work-in-progress, not a stub.
 
 ## Protocol shape (essential when editing parsers)
 
@@ -28,7 +28,7 @@ Payload string records use the pattern `5 zero bytes + 4-byte ID + 4-byte length
 
 USB endpoints used by the device: bulk OUT `0x03` for host→device commands, bulk IN `0x82` for device→host responses (see `PROTOCOL.md` for the full endpoint map). `nord_api.py` discovers the right endpoints by scanning attributes rather than hardcoding addresses.
 
-The full set of known query types and payload meanings (piano categories, banks A–P, banks 1–8, samp lib, programs, songs, piano detail, download, upload, delete, swap, rename) lives in `PROTOCOL.md` — consult it before adding or renaming any command/payload constants.
+The full set of known query types and payload meanings (piano categories, banks A–P, banks 1–8, samp lib, programs, songs, piano detail, download, upload, delete, swap, rename, flash compaction, chunked piano install) lives in `PROTOCOL.md` — consult it before adding or renaming any command/payload constants. The nordkeyboards.com REST API used for the online Sound Library is documented in `RE/scripts/SOUNDLIBRARY.md`.
 
 ## Pipeline and how the pieces fit together
 
@@ -88,6 +88,8 @@ dotnet run  --project NordSampleManager                         # launch the Ava
 
 The solution splits into three projects: `NordSampleManager.Protocol` (headless, USB transport + framing + `NordClient` façade), `NordSampleManager.Protocol.Tests` (xUnit), and `NordSampleManager` (Avalonia UI exe). USB access goes through `LibUsbNordDevice` which mirrors `nord_api.py`'s endpoint-scan and CMD_INIT handshake.
 
+Implemented features: browse Pianos, Programs, Sample Library, Songs, Synths; export / import / delete / swap / rename Programs; browse and install sounds from the nordkeyboards.com online library ("Transfer to Instrument" and "Substitute Selected Sound"). Piano install uses the flash-compaction loop (p2=0x22/0x23/0x26/0x27) and chunked 32 726-byte uploads.
+
 USB permissions: `99-nord.rules` at the repo root grants console users access to VID `0ffc`:PID `0026`. Install with `sudo cp 99-nord.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger`, then re-plug the device. Without it, `LibUsbDotNet` (and `pyusb`) fail with `LIBUSB_ERROR_ACCESS`.
 
 There is no linter or formatter configured beyond `.editorconfig`.
@@ -98,6 +100,10 @@ There is no linter or formatter configured beyond `.editorconfig`.
 - Document new findings in `PROTOCOL.md` — that is the canonical protocol notebook for this project.
 
 ## Deferred implementation notes
+
+### p2=0x35/0x36 Relink operation
+
+Captured in `Relink Imperial to Steinway.pcapng`. The relink sequence updates the piano/sample-lib references stored inside one or more program slots without re-uploading the program file. Full payload layout is not yet decoded. Needed if we want to implement "change which piano a program uses" from within the app.
 
 ### Clickable program names in song detail view
 

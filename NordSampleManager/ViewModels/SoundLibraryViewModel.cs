@@ -60,8 +60,12 @@ public partial class SoundLibraryViewModel : ObservableObject
         StatusMessage = "Loading catalog…";
         try
         {
-            var pianos  = await client.GetPianoCatalogAsync(ct).ConfigureAwait(false);
-            var samples = await client.GetSampleCatalogAsync(ct).ConfigureAwait(false);
+            // Fetch piano and sample catalogs in parallel.
+            var pianoTask  = client.GetPianoCatalogAsync(ct);
+            var sampleTask = client.GetSampleCatalogAsync(ct);
+            await Task.WhenAll(pianoTask, sampleTask).ConfigureAwait(false);
+            var pianos  = pianoTask.Result;
+            var samples = sampleTask.Result;
 
             PianoCatalog.Clear();
             foreach (var p in pianos) PianoCatalog.Add(p);

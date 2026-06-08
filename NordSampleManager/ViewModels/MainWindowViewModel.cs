@@ -87,7 +87,7 @@ public partial class MainWindowViewModel : ObservableObject
             : $"Kind:     {entry.Kind}\n" +
               $"Index:    {entry.Index}\n" +
               $"Name:     {entry.Name}\n\n" +
-              "Per-item detail requires the Param2=0x1e / 0x28 queries — not yet decoded.";
+              "No per-item detail (device not connected, or loading failed).";
     }
 
     private void UpdateStatus()
@@ -143,52 +143,131 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ToggleSoundLibrary() => SoundLibraryVisible = !SoundLibraryVisible;
 
-    /// <summary>Called by SoundLibraryPanel when the user clicks "Install…".</summary>
-    public async Task InstallFromLibraryAsync(
-        object? selectedItem, int keyboardCode, CancellationToken ct = default)
+    /// <summary>
+    /// "Transfer to Instrument": installs the selected online sound into the next available
+    /// empty slot. Fails early if there is not enough storage space.
+    /// </summary>
+    public async Task TransferToInstrumentAsync(object? selectedItem, int keyboardCode, CancellationToken ct = default)
+    {
+        if (deviceService.Client is null || selectedItem is null) return;
+
+        if (selectedItem is LibraryCatalogEntry pianoEntry && pianoEntry.LibraryType == "Piano")
+        {
+            var downloads = await FetchPianoDownloadsOrError(pianoEntry, ct);
+            if (downloads is null) return;
+
+            var owner = GetMainWindow();
+            if (owner is null) return;
+
+            // Let user pick size and see available empty slots only
+            var occupied = PianoOccupiedMap();
+            var vm = new InstallSlotDialogViewModel(pianoEntry.Title, downloads.Options, occupied);
+            var dialog = new Views.InstallSlotDialog { DataContext = vm };
+            if (!await dialog.ShowDialog<bool>(owner)) return;
+            if (vm.SelectedOption is null) return;
+
+            // Space check before downloading
+            var needed = NordLibraryClient.ParseFileSizeBytes(vm.SelectedOption.FileSize);
+            if (needed > 0 && needed > library.PianoStorageFreeBytes)
+            {
+                StatusText = $"Not enough space: need {needed / (1024.0 * 1024):F0} MiB, " +
+                             $"{library.PianoStorageFreeBytes / (1024.0 * 1024):F0} MiB free.";
+                return;
+            }
+
+            await RunInstallAsync(vm.BuildResult(vm.SelectedOption.DownloadUrl)!, isPiano: true, keyboardCode, ct);
+        }
+        else if (selectedItem is SampleInstrument instrument)
+        {
+            // For samples: find first empty slot
+            var allSlots = Enumerable.Range(0, 400).ToHashSet();
+            var usedSlots = library.SampLibBanks.Where(e => e.Ref.HasValue).Select(e => e.Ref!.Value.Location).ToHashSet();
+            var emptySlot = allSlots.Except(usedSlots).Cast<int?>().FirstOrDefault();
+            if (emptySlot is null)
+            {
+                StatusText = "Sample library is full — no empty slots available.";
+                return;
+            }
+
+            var url = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
+            var result = new InstallSlotResult(url, 0, emptySlot.Value, false, TruncateName(instrument.Title));
+            await RunInstallAsync(result, isPiano: false, keyboardCode, ct);
+        }
+    }
+
+    /// <summary>
+    /// "Substitute Selected Sound": replaces the device sound currently selected in the main
+    /// panel with the chosen online sound. Fails early if not enough space.
+    /// </summary>
+    public async Task SubstituteSelectedSoundAsync(object? selectedItem, int keyboardCode, CancellationToken ct = default)
     {
         if (deviceService.Client is null || selectedItem is null) return;
         var owner = GetMainWindow();
         if (owner is null) return;
 
-        string title, downloadUrl;
-
-        if (selectedItem is LibraryCatalogEntry pianoEntry && pianoEntry.LibraryType == "Piano")
+        var deviceEntry = SelectedCategory?.SelectedEntry;
+        if (deviceEntry?.Ref is null)
         {
-            title = pianoEntry.Title;
-            // Fetch download options to let user pick size
-            var downloads = await libraryClient.GetPianoDownloadsAsync(
-                ExtractProductCode(pianoEntry.CompatibleProductsUrl), ct);
-            if (downloads is null || downloads.Options.Count == 0)
-            {
-                StatusText = "Could not fetch download options.";
-                return;
-            }
-            var occupied = library.PianoCategories
-                .Where(e => e.Ref.HasValue)
-                .ToDictionary(e => (e.Ref!.Value.Bank, e.Ref!.Value.Location), e => e.Name);
-            var vm = new InstallSlotDialogViewModel(title, downloads.Options, occupied);
+            StatusText = "Select a sound on the device first.";
+            return;
+        }
+
+        if (selectedItem is LibraryCatalogEntry pianoEntry && pianoEntry.LibraryType == "Piano"
+            && SelectedCategory?.Category == LibraryCategory.Piano)
+        {
+            var downloads = await FetchPianoDownloadsOrError(pianoEntry, ct);
+            if (downloads is null) return;
+
+            var vm = new InstallSlotDialogViewModel(pianoEntry.Title, downloads.Options, PianoOccupiedMap());
+            // Pre-select the device entry's category/slot
+            vm.SelectedCategoryIndex = deviceEntry.Ref.Value.Bank;
+            vm.SelectedPianoSlot    = deviceEntry.Ref.Value.Location;
+
             var dialog = new Views.InstallSlotDialog { DataContext = vm };
             if (!await dialog.ShowDialog<bool>(owner)) return;
             if (vm.SelectedOption is null) return;
-            downloadUrl = vm.SelectedOption.DownloadUrl;
-            var result = vm.BuildResult(downloadUrl)!;
-            await RunInstallAsync(result, isPiano: true, keyboardCode, ct);
+
+            var needed = NordLibraryClient.ParseFileSizeBytes(vm.SelectedOption.FileSize);
+            if (needed > 0 && needed > library.PianoStorageFreeBytes + deviceEntry.SizeBytes)
+            {
+                StatusText = $"Not enough space after freeing the replaced piano.";
+                return;
+            }
+
+            await RunInstallAsync(vm.BuildResult(vm.SelectedOption.DownloadUrl)!, isPiano: true, keyboardCode, ct);
         }
-        else if (selectedItem is SampleInstrument instrument)
+        else if (selectedItem is SampleInstrument instrument
+                 && SelectedCategory?.Category == LibraryCategory.SampLib)
         {
-            title = instrument.Title;
-            var actualUrl = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
-            var occupied = library.SampLibBanks
-                .Where(e => e.Ref.HasValue)
-                .ToDictionary(e => e.Ref!.Value.Location, e => e.Name);
-            var vm = new InstallSlotDialogViewModel(title, occupied);
-            var dialog = new Views.InstallSlotDialog { DataContext = vm };
-            if (!await dialog.ShowDialog<bool>(owner)) return;
-            var result = vm.BuildResult(actualUrl)!;
+            var slot   = deviceEntry.Ref.Value.Location;
+            var url    = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
+            var result = new InstallSlotResult(url, 0, slot, true, TruncateName(instrument.Title));
             await RunInstallAsync(result, isPiano: false, keyboardCode, ct);
         }
+        else
+        {
+            StatusText = "Select a matching sound type on the device (Piano→Piano, Sample→Sample).";
+        }
     }
+
+    private async Task<PianoDownloads?> FetchPianoDownloadsOrError(LibraryCatalogEntry entry, CancellationToken ct)
+    {
+        var downloads = await libraryClient.GetPianoDownloadsAsync(
+            NordLibraryClient.ExtractProductCode(entry.CompatibleProductsUrl), ct);
+        if (downloads is null || downloads.Options.Count == 0)
+        {
+            StatusText = "Could not fetch download options.";
+            return null;
+        }
+        return downloads;
+    }
+
+    private Dictionary<(int cat, int slot), string> PianoOccupiedMap() =>
+        library.PianoCategories
+               .Where(e => e.Ref.HasValue)
+               .ToDictionary(e => (e.Ref!.Value.Bank, e.Ref!.Value.Location), e => e.Name);
+
+    private static string TruncateName(string name) => name.Length > 16 ? name[..16] : name;
 
     private async Task RunInstallAsync(InstallSlotResult result, bool isPiano, int keyboardCode, CancellationToken ct)
     {
@@ -269,12 +348,6 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private static int ExtractProductCode(string compatibleProductsUrl)
-    {
-        // URL pattern: /wt/api/main/v1/compatible_products/{productCode}/
-        var parts = compatibleProductsUrl.TrimEnd('/').Split('/');
-        return int.TryParse(parts.LastOrDefault(), out var code) ? code : 0;
-    }
 
     [RelayCommand]
     private async Task RenameAsync()

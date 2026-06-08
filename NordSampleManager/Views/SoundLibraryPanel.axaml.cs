@@ -6,9 +6,15 @@ public partial class SoundLibraryPanel : UserControl
 {
     public SoundLibraryPanel() => InitializeComponent();
 
-    // Raised when "Install…" is clicked so the parent window can open the dialog.
-    public event EventHandler? InstallRequested;
+    /// Raised when "Transfer to Instrument" is clicked (install to next empty slot).
+    public event EventHandler? TransferRequested;
 
-    private void OnInstallClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
-        InstallRequested?.Invoke(this, EventArgs.Empty);
+    /// Raised when "Substitute Selected Sound" is clicked (replace the currently selected device sound).
+    public event EventHandler? SubstituteRequested;
+
+    private void OnTransferClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        TransferRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnSubstituteClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        SubstituteRequested?.Invoke(this, EventArgs.Empty);
 }

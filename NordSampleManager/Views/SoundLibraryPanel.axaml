@@ -107,9 +107,16 @@
         <Button Content="Refresh"
                 Command="{Binding LoadCatalogCommand}"
                 IsEnabled="{Binding !IsLoadingCatalog}"/>
-        <Button Content="Install…"
-                Click="OnInstallClick"
-                IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+      </StackPanel>
+      <StackPanel Spacing="4" IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <Button Content="Transfer to Instrument"
+                Click="OnTransferClick"
+                HorizontalAlignment="Stretch"
+                ToolTip.Tip="Download and install into the next available empty slot"/>
+        <Button Content="Substitute Selected Sound"
+                Click="OnSubstituteClick"
+                HorizontalAlignment="Stretch"
+                ToolTip.Tip="Replace the currently selected sound on the device with this one"/>
       </StackPanel>
     </StackPanel>
 
