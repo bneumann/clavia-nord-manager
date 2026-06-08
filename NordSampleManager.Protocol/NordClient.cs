@@ -40,6 +40,9 @@ public sealed class NordClient : IDisposable
     /// <summary>Song library slot stats (UsedBytes=usedSlots, FreeBytes=freeSlots, TotalBytes=400), populated after <see cref="QueryAllSongsAsync"/> completes.</summary>
     public LibraryStorageInfo SongStorage { get; private set; }
 
+    /// <summary>Sample library storage stats (UsedBytes/FreeBytes in bytes, 128 KiB blocks), populated after <see cref="QueryAllSampLibAsync"/> completes.</summary>
+    public LibraryStorageInfo SampLibStorage { get; private set; }
+
     public bool IsConnected => device.IsConnected;
 
     public async Task ConnectAsync(CancellationToken ct = default)
@@ -233,12 +236,65 @@ public sealed class NordClient : IDisposable
     private static LibraryStorageInfo ParseSongStorageInfo(ReadOnlyMemory<byte> raw) =>
         ParseSlotStorageInfo(raw, totalSlots: 8 * 50);
 
+    // LibraryInfoAck for SampLib (library_id=5): payload[12..15]=total_blocks, payload[16..19]=free_blocks.
+    // Unit is 128 KiB allocation blocks. Confirmed from detection+readlibrary.pcapng: 568 free × 128 KiB ≈ 71 MiB.
+    private static LibraryStorageInfo ParseSampLibStorageInfo(ReadOnlyMemory<byte> raw)
+    {
+        if (!MessageParser.TryParse(raw, out var msg) || msg.Payload.Length < 20)
+            return default;
+        const long blockSize = 128 * 1024;
+        var span = msg.Payload.Span;
+        var totalBlocks = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(12, 4));
+        var freeBlocks  = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(16, 4));
+        var usedBlocks  = totalBlocks > freeBlocks ? totalBlocks - freeBlocks : 0;
+        return new LibraryStorageInfo(FreeBytes: freeBlocks * blockSize, UsedBytes: usedBlocks * blockSize);
+    }
+
     private static LibraryStorageInfo ParseSlotStorageInfo(ReadOnlyMemory<byte> raw, long totalSlots)
     {
         if (!MessageParser.TryParse(raw, out var msg) || msg.Payload.Length < 8)
             return default;
         var usedSlots = (long)BinaryPrimitives.ReadUInt32BigEndian(msg.Payload.Span.Slice(4, 4));
         return new LibraryStorageInfo(FreeBytes: totalSlots - usedSlots, UsedBytes: usedSlots);
+    }
+
+    public Task<IReadOnlyList<SampInfo>> QueryAllSampLibAsync(CancellationToken ct = default) =>
+        QueryAllSampLibCoreAsync(ct);
+
+    private async Task<IReadOnlyList<SampInfo>> QueryAllSampLibCoreAsync(CancellationToken ct)
+    {
+        await SetupLibraryIteratorAsync(NordCommands.SampLibraryId, ct).ConfigureAwait(false);
+
+        var results = new List<SampInfo>();
+        var state = await OpenBankAsync(0, ct).ConfigureAwait(false);
+
+        while (!state.IsEndOfBank)
+        {
+            var samp = await FetchSampItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+            if (samp is not null) results.Add(samp);
+            state = await AckItemAsync(state.Bank, state.NextItem, ct).ConfigureAwait(false);
+        }
+
+        try { await CloseIteratorAsync(ct).ConfigureAwait(false); } catch { }
+        return results;
+    }
+
+    private async Task<SampInfo?> FetchSampItemAsync(uint bank, uint item, CancellationToken ct)
+    {
+        var payload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(0, 4), bank);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(4, 4), item);
+        var raw = await SendAndReceiveAsync(NordCommands.CmdQuery, NordCommands.ParamQuery,
+            NordCommands.RequestItemBasic, payload, ct).ConfigureAwait(false);
+        if (!MessageParser.TryParse(raw, out var msg) || !MessageParser.TryParseItemData(msg.Payload, out var data))
+            return null;
+        return new SampInfo(
+            Location:     (int)item,
+            Name:         data.Name,
+            Version:      $"{data.VersionMajor}.{data.VersionMinor:D2}",
+            CategoryCode: data.CategoryField,
+            SizeBytes:    (long)data.DataSize,
+            FileType:     data.FileType);
     }
 
     public Task<IReadOnlyList<SongInfo>> QueryAllSongsAsync(CancellationToken ct = default) =>
@@ -343,6 +399,8 @@ public sealed class NordClient : IDisposable
 
         if (libraryId == NordCommands.PianoLibraryId)
             PianoStorage = ParsePianoStorageInfo(infoRaw);
+        else if (libraryId == NordCommands.SampLibraryId)
+            SampLibStorage = ParseSampLibStorageInfo(infoRaw);
         else if (libraryId == NordCommands.SynthLibraryId)
             SynthStorage = ParseSynthStorageInfo(infoRaw);
         else if (libraryId == NordCommands.SongLibraryId)

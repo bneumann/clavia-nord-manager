@@ -32,6 +32,7 @@ public static class NordCommands
     public const uint CloseIteratorAck  = 0x00000007;  // D→H
     public const uint ProgramLibraryId  = 0x00000007;  // library_id that selects Programs A-P (ns3f)
     public const uint PianoLibraryId    = 0x00000001;  // library_id that selects Pianos (npno); banks = categories
+    public const uint SampLibraryId     = 0x00000005;  // library_id that selects Samples (nsmp); 1 bank, up to 400 slots
     public const uint SynthLibraryId    = 0x00000008;  // library_id that selects Synths (ns3y); 8 banks × 50 slots
     public const uint SongLibraryId     = 0x00000009;  // library_id that selects Songs  (ns3s); 8 banks × 50 slots
 

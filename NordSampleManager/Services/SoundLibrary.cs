@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using NordSampleManager.Protocol;
 using NordSampleManager.Protocol.Records;
 using ProgramCat = NordSampleManager.Protocol.Records.ProgramCategoryExtensions;
+using SampCat = NordSampleManager.Protocol.Records.SampCategoryExtensions;
 using SynthCat = NordSampleManager.Protocol.Records.SynthCategoryExtensions;
 
 namespace NordSampleManager.Services;
@@ -22,6 +23,7 @@ public sealed class SoundLibrary
     public long PianoStorageUsedBytes => PianoCategories.Sum(e => e.SizeBytes);
     public long PianoStorageFreeBytes { get; private set; }
 
+    public LibraryStorageInfo SampLibStorage { get; private set; }
     public LibraryStorageInfo SynthStorage { get; private set; }
     public LibraryStorageInfo SongStorage  { get; private set; }
 
@@ -46,10 +48,7 @@ public sealed class SoundLibrary
 
         // Critical queries — failure throws and aborts the load.
         var banks = await client.QueryBanksAtoPAsync(ct);
-        var samp  = await client.QuerySampLibAsync(ct);
-
         FillFromStrings(ProgramBanks, "Program bank", banks);
-        FillFromStrings(SampLibBanks, "Samp Lib",     samp);
 
         // Best-effort: replace bank-name placeholders with rich per-item data.
         try
@@ -80,6 +79,25 @@ public sealed class SoundLibrary
                 {
                     Detail    = $"Version: {p.Version}\nSize:    {p.SizeBytes / (1024.0 * 1024.0):F1} MiB",
                     SizeBytes = p.SizeBytes,
+                });
+            }
+        }
+        catch { /* keep placeholder data */ }
+
+        try
+        {
+            var samps = await client.QueryAllSampLibAsync(ct);
+            SampLibStorage = client.SampLibStorage;
+            SampLibBanks.Clear();
+            foreach (var s in samps)
+            {
+                var cat = SampCat.DisplayName(s.CategoryCode);
+                SampLibBanks.Add(new BankEntry(cat, s.Location + 1, s.Name)
+                {
+                    Detail       = $"Category: {cat}\nVersion:  {s.Version}\nSize:     {s.SizeBytes / (1024.0 * 1024.0):F1} MiB",
+                    CategoryCode = s.CategoryCode,
+                    CategoryName = cat,
+                    SizeBytes    = s.SizeBytes,
                 });
             }
         }

@@ -427,6 +427,14 @@ public partial class MainWindowViewModel : ObservableObject
             StorageFreeText = $"{library.SongStorage.FreeBytes} free";
             StorageVisible  = true;
         }
+        else if (SelectedCategory?.Category == LibraryCategory.SampLib
+                 && library.SampLibStorage.TotalBytes > 0)
+        {
+            StorageUsedFraction = library.SampLibStorage.UsedFraction;
+            StorageUsedText = $"Used: {library.SampLibStorage.UsedBytes / (1024.0 * 1024 * 1024):F1} GiB";
+            StorageFreeText = $"Free: {library.SampLibStorage.FreeBytes / (1024.0 * 1024 * 1024):F1} GiB";
+            StorageVisible  = true;
+        }
         else
         {
             StorageVisible = false;
