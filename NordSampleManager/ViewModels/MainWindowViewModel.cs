@@ -190,7 +190,8 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             var url = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
-            var result = new InstallSlotResult(url, 0, emptySlot.Value, false, TruncateName(instrument.Title));
+            var categoryCode = Protocol.Records.SampCategoryExtensions.FromWebCategoryTitle(instrument.Category);
+            var result = new InstallSlotResult(url, 0, emptySlot.Value, false, TruncateName(instrument.Title), categoryCode);
             await RunInstallAsync(result, isPiano: false, keyboardCode, ct);
         }
     }
@@ -239,9 +240,10 @@ public partial class MainWindowViewModel : ObservableObject
         else if (selectedItem is SampleInstrument instrument
                  && SelectedCategory?.Category == LibraryCategory.SampLib)
         {
-            var slot   = deviceEntry.Ref.Value.Location;
-            var url    = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
-            var result = new InstallSlotResult(url, 0, slot, true, TruncateName(instrument.Title));
+            var slot         = deviceEntry.Ref.Value.Location;
+            var url          = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
+            var categoryCode = Protocol.Records.SampCategoryExtensions.FromWebCategoryTitle(instrument.Category);
+            var result = new InstallSlotResult(url, 0, slot, true, TruncateName(instrument.Title), categoryCode);
             await RunInstallAsync(result, isPiano: false, keyboardCode, ct);
         }
         else
@@ -252,8 +254,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task<PianoDownloads?> FetchPianoDownloadsOrError(LibraryCatalogEntry entry, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(entry.PianoDownloadsUrl))
+        {
+            StatusText = "No download URL for this piano.";
+            return null;
+        }
         var downloads = await libraryClient.GetPianoDownloadsAsync(
-            NordLibraryClient.ExtractProductCode(entry.CompatibleProductsUrl), ct);
+            NordLibraryClient.ExtractProductCode(entry.PianoDownloadsUrl), ct);
         if (downloads is null || downloads.Options.Count == 0)
         {
             StatusText = "Could not fetch download options.";
@@ -281,10 +288,21 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             StatusText = "Downloading…";
-            var rawCbin = await libraryClient.DownloadFileAsync(result.DownloadUrl, progress, ct);
-            if (!Protocol.Records.CbinFile.TryParse(rawCbin, out var cbin))
+            var rawBytes = await libraryClient.DownloadFileAsync(result.DownloadUrl, progress, ct);
+
+            // Piano files from the Nord CDN are CBIN-wrapped; sample files may or may not be.
+            byte[] rawData;
+            if (Protocol.Records.CbinFile.TryParse(rawBytes, out var cbin))
             {
-                StatusText = "Downloaded file is not a valid CBIN file.";
+                rawData = cbin.RawData;
+            }
+            else if (!isPiano)
+            {
+                rawData = rawBytes;  // raw NSMP without CBIN wrapper — use as-is
+            }
+            else
+            {
+                StatusText = "Downloaded piano file is not valid CBIN format.";
                 return;
             }
 
@@ -295,7 +313,7 @@ public partial class MainWindowViewModel : ObservableObject
             if (isPiano)
             {
                 await deviceService.Client.InstallPianoAsync(
-                    result.CategoryIndex, result.Slot, result.Name, cbin.RawData,
+                    result.CategoryIndex, result.Slot, result.Name, rawData,
                     result.DeleteExisting, uploadProgress, ct);
                 // Refresh piano section
                 try
@@ -308,6 +326,7 @@ public partial class MainWindowViewModel : ObservableObject
                         {
                             Detail    = $"Version: {p.Version}\nSize:    {p.SizeBytes / (1024.0 * 1024.0):F1} MiB",
                             SizeBytes = p.SizeBytes,
+                            Ref       = new Protocol.Records.SoundRef(Protocol.Records.SoundItemType.Piano, p.CategoryIndex, p.Location),
                         });
                 }
                 catch { }
@@ -315,7 +334,7 @@ public partial class MainWindowViewModel : ObservableObject
             else
             {
                 await deviceService.Client.InstallSampleAsync(
-                    result.Slot, result.Name, cbin.RawData, 0,
+                    result.Slot, result.Name, rawData, result.CategoryCode,
                     result.DeleteExisting, uploadProgress, ct);
                 // Refresh sample section
                 try
@@ -327,8 +346,11 @@ public partial class MainWindowViewModel : ObservableObject
                         var cat = Protocol.Records.SampCategoryExtensions.DisplayName(s.CategoryCode);
                         library.SampLibBanks.Add(new Services.BankEntry(cat, s.Location + 1, s.Name)
                         {
-                            Detail    = $"Category: {cat}\nVersion:  {s.Version}\nSize:     {s.SizeBytes / (1024.0 * 1024.0):F1} MiB",
-                            SizeBytes = s.SizeBytes,
+                            Detail       = $"Category: {cat}\nVersion:  {s.Version}\nSize:     {s.SizeBytes / (1024.0 * 1024.0):F1} MiB",
+                            CategoryCode = s.CategoryCode,
+                            CategoryName = cat,
+                            SizeBytes    = s.SizeBytes,
+                            Ref          = new Protocol.Records.SoundRef(Protocol.Records.SoundItemType.SampLib, 0, s.Location),
                         });
                     }
                 }

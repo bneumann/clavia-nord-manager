@@ -79,6 +79,7 @@ public sealed class SoundLibrary
                 {
                     Detail    = $"Version: {p.Version}\nSize:    {p.SizeBytes / (1024.0 * 1024.0):F1} MiB",
                     SizeBytes = p.SizeBytes,
+                    Ref       = new SoundRef(SoundItemType.Piano, p.CategoryIndex, p.Location),
                 });
             }
         }
@@ -98,6 +99,7 @@ public sealed class SoundLibrary
                     CategoryCode = s.CategoryCode,
                     CategoryName = cat,
                     SizeBytes    = s.SizeBytes,
+                    Ref          = new SoundRef(SoundItemType.SampLib, 0, s.Location),
                 });
             }
         }

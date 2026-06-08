@@ -9,7 +9,8 @@ public sealed record InstallSlotResult(
     int     CategoryIndex,  // piano: 0-5; sample: 0
     int     Slot,
     bool    DeleteExisting,
-    string  Name);
+    string  Name,
+    uint    CategoryCode = 0);  // sample: device category code; piano: unused (0xffffffff set in NordClient)
 
 public sealed partial class InstallSlotDialogViewModel : ObservableObject
 {
