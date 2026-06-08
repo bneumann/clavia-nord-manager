@@ -27,13 +27,16 @@
         <Button Content="Upload…"
                 Command="{Binding UploadCommand}"
                 IsEnabled="{Binding CanUpload}"/>
+        <Separator Width="1"/>
+        <ToggleButton Content="Sound Library"
+                      IsChecked="{Binding SoundLibraryVisible}"/>
         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
         <ProgressBar IsIndeterminate="True" Width="120"
                      IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>
       </StackPanel>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="200,*,320">
+    <Grid Grid.Row="1" ColumnDefinitions="200,*,320,Auto">
       <!-- Left rail: category list + storage widget -->
       <Grid Grid.Column="0" RowDefinitions="*,Auto">
         <ListBox Grid.Row="0"
@@ -117,6 +120,18 @@
                        FontSize="12"/>
           </ScrollViewer>
         </Grid>
+      </Border>
+
+      <!-- Sound library panel (collapsible) -->
+      <Border Grid.Column="3"
+              IsVisible="{Binding SoundLibraryVisible}"
+              Width="380"
+              BorderBrush="{DynamicResource SystemBaseLowColor}"
+              BorderThickness="1,0,0,0">
+        <views:SoundLibraryPanel
+            Margin="8"
+            DataContext="{Binding SoundLibrary}"
+            InstallRequested="OnSoundLibraryInstallRequested"/>
       </Border>
     </Grid>
   </Grid>

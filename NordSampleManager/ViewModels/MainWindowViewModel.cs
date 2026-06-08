@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly DeviceService deviceService;
     private readonly SoundLibrary library;
+    private readonly NordLibraryClient libraryClient;
 
     public ObservableCollection<CategoryViewModel> Categories { get; }
 
@@ -32,13 +33,20 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private double storageUsedFraction;
     [ObservableProperty] private string storageUsedText = "";
     [ObservableProperty] private string storageFreeText = "";
+    [ObservableProperty] private bool   soundLibraryVisible;
+
+    public SoundLibraryViewModel SoundLibrary { get; }
+    public ushort DeviceProductId => deviceService.ProductId;
 
     partial void OnIsBusyChanged(bool value) => UpdateStatus();
 
-    public MainWindowViewModel(DeviceService deviceService, SoundLibrary library)
+    public MainWindowViewModel(DeviceService deviceService, SoundLibrary library,
+        NordLibraryClient libraryClient, SoundLibraryViewModel soundLibrary)
     {
         this.deviceService = deviceService;
         this.library = library;
+        this.libraryClient = libraryClient;
+        SoundLibrary = soundLibrary;
         deviceService.StateChanged += (_, _) => UpdateStatus();
 
         Categories = new ObservableCollection<CategoryViewModel>
@@ -130,6 +138,142 @@ public partial class MainWindowViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private void ToggleSoundLibrary() => SoundLibraryVisible = !SoundLibraryVisible;
+
+    /// <summary>Called by SoundLibraryPanel when the user clicks "Install…".</summary>
+    public async Task InstallFromLibraryAsync(
+        object? selectedItem, int keyboardCode, CancellationToken ct = default)
+    {
+        if (deviceService.Client is null || selectedItem is null) return;
+        var owner = GetMainWindow();
+        if (owner is null) return;
+
+        string title, downloadUrl;
+
+        if (selectedItem is LibraryCatalogEntry pianoEntry && pianoEntry.LibraryType == "Piano")
+        {
+            title = pianoEntry.Title;
+            // Fetch download options to let user pick size
+            var downloads = await libraryClient.GetPianoDownloadsAsync(
+                ExtractProductCode(pianoEntry.CompatibleProductsUrl), ct);
+            if (downloads is null || downloads.Options.Count == 0)
+            {
+                StatusText = "Could not fetch download options.";
+                return;
+            }
+            var occupied = library.PianoCategories
+                .Where(e => e.Ref.HasValue)
+                .ToDictionary(e => (e.Ref!.Value.Bank, e.Ref!.Value.Location), e => e.Name);
+            var vm = new InstallSlotDialogViewModel(title, downloads.Options, occupied);
+            var dialog = new Views.InstallSlotDialog { DataContext = vm };
+            if (!await dialog.ShowDialog<bool>(owner)) return;
+            if (vm.SelectedOption is null) return;
+            downloadUrl = vm.SelectedOption.DownloadUrl;
+            var result = vm.BuildResult(downloadUrl)!;
+            await RunInstallAsync(result, isPiano: true, keyboardCode, ct);
+        }
+        else if (selectedItem is SampleInstrument instrument)
+        {
+            title = instrument.Title;
+            var actualUrl = NordLibraryClient.SubstituteKeyboardCode(instrument.DownloadUrlTemplate, keyboardCode);
+            var occupied = library.SampLibBanks
+                .Where(e => e.Ref.HasValue)
+                .ToDictionary(e => e.Ref!.Value.Location, e => e.Name);
+            var vm = new InstallSlotDialogViewModel(title, occupied);
+            var dialog = new Views.InstallSlotDialog { DataContext = vm };
+            if (!await dialog.ShowDialog<bool>(owner)) return;
+            var result = vm.BuildResult(actualUrl)!;
+            await RunInstallAsync(result, isPiano: false, keyboardCode, ct);
+        }
+    }
+
+    private async Task RunInstallAsync(InstallSlotResult result, bool isPiano, int keyboardCode, CancellationToken ct)
+    {
+        if (deviceService.Client is null) return;
+        IsBusy = true;
+        var progress = new Progress<(long received, long total)>(p =>
+        {
+            if (p.total > 0)
+                StatusText = $"Downloading… {p.received / (1024.0 * 1024):F1} / {p.total / (1024.0 * 1024):F1} MB";
+        });
+        try
+        {
+            StatusText = "Downloading…";
+            var rawCbin = await libraryClient.DownloadFileAsync(result.DownloadUrl, progress, ct);
+            if (!Protocol.Records.CbinFile.TryParse(rawCbin, out var cbin))
+            {
+                StatusText = "Downloaded file is not a valid CBIN file.";
+                return;
+            }
+
+            StatusText = $"Installing '{result.Name}'…";
+            var uploadProgress = new Progress<(int done, int total)>(p =>
+                StatusText = $"Uploading… {p.done}/{p.total} chunks");
+
+            if (isPiano)
+            {
+                await deviceService.Client.InstallPianoAsync(
+                    result.CategoryIndex, result.Slot, result.Name, cbin.RawData,
+                    result.DeleteExisting, uploadProgress, ct);
+                // Refresh piano section
+                try
+                {
+                    var pianos = await deviceService.Client.QueryAllPianoNamesAsync(ct);
+                    library.PianoStorageFreeBytes = deviceService.Client.PianoStorage.FreeBytes;
+                    library.PianoCategories.Clear();
+                    foreach (var p in pianos)
+                        library.PianoCategories.Add(new Services.BankEntry(p.Category, p.Location + 1, p.Name)
+                        {
+                            Detail    = $"Version: {p.Version}\nSize:    {p.SizeBytes / (1024.0 * 1024.0):F1} MiB",
+                            SizeBytes = p.SizeBytes,
+                        });
+                }
+                catch { }
+            }
+            else
+            {
+                await deviceService.Client.InstallSampleAsync(
+                    result.Slot, result.Name, cbin.RawData, 0,
+                    result.DeleteExisting, uploadProgress, ct);
+                // Refresh sample section
+                try
+                {
+                    var samps = await deviceService.Client.QueryAllSampLibAsync(ct);
+                    library.SampLibBanks.Clear();
+                    foreach (var s in samps)
+                    {
+                        var cat = Protocol.Records.SampCategoryExtensions.DisplayName(s.CategoryCode);
+                        library.SampLibBanks.Add(new Services.BankEntry(cat, s.Location + 1, s.Name)
+                        {
+                            Detail    = $"Category: {cat}\nVersion:  {s.Version}\nSize:     {s.SizeBytes / (1024.0 * 1024.0):F1} MiB",
+                            SizeBytes = s.SizeBytes,
+                        });
+                    }
+                }
+                catch { }
+            }
+
+            StatusText = $"Installed: {result.Name}";
+            UpdateStorageInfo();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Install failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static int ExtractProductCode(string compatibleProductsUrl)
+    {
+        // URL pattern: /wt/api/main/v1/compatible_products/{productCode}/
+        var parts = compatibleProductsUrl.TrimEnd('/').Split('/');
+        return int.TryParse(parts.LastOrDefault(), out var code) ? code : 0;
     }
 
     [RelayCommand]

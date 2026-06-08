@@ -19,6 +19,18 @@ public partial class App : Application
         var services = new ServiceCollection();
         services.AddSingleton<DeviceService>();
         services.AddSingleton<SoundLibrary>();
+        services.AddSingleton(_ =>
+        {
+            var http = new System.Net.Http.HttpClient
+            {
+                BaseAddress = new Uri("https://www.nordkeyboards.com"),
+                Timeout     = TimeSpan.FromMinutes(5),
+            };
+            http.DefaultRequestHeaders.Add("Accept", "application/json, text/html");
+            return http;
+        });
+        services.AddSingleton<NordLibraryClient>();
+        services.AddSingleton<SoundLibraryViewModel>();
         services.AddTransient<MainWindowViewModel>();
         Services = services.BuildServiceProvider();
 

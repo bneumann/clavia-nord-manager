@@ -58,6 +58,12 @@ public static class NordCommands
     public const uint SwapRequest  = 0x0000001a;  // H→D: [bank1, item1, bank2, item2]
     public const uint SwapResponse = 0x0000001b;  // D→H: [status]
 
+    // Flash compaction — D→H after piano delete; host must drive the loop (confirmed 2026-06-08).
+    public const uint FlashCompactNotify = 0x00000022;  // D→H: [total_steps u32]
+    public const uint FlashCompactAck    = 0x00000023;  // H→D: [0x00000000]  (no D→H reply)
+    public const uint FlashCompactPoll   = 0x00000026;  // H→D: empty
+    public const uint FlashCompactState  = 0x00000027;  // D→H: [0, total, offset, is_busy u32]
+
     // Rename / write commands (confirmed from Rename N11 pcapng, 2026-06-03).
     public const uint EditItemOpen    = 0x00000033;  // H→D: [bank_id, item_index, new_category_code]
     public const uint EditItemOpenAck = 0x00000034;  // D→H

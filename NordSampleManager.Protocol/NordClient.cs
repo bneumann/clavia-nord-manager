@@ -759,6 +759,174 @@ public sealed class NordClient : IDisposable
         }
     }
 
+    // ----------------------------------------------------------------
+    // Piano install — confirmed protocol from Replace Silver Grand pcapng, 2026-06-08.
+    // Holds the gate for the entire operation (delete + flash compact + chunked upload).
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// Install a piano (npno) file into the Piano library. If <paramref name="deleteExisting"/>
+    /// is true the current occupant is deleted first and the resulting flash-compaction loop is
+    /// driven before the upload begins. <paramref name="rawData"/> is the CBIN-stripped payload
+    /// (i.e. <see cref="CbinFile.RawData"/>).
+    /// </summary>
+    public Task InstallPianoAsync(
+        int categoryIndex, int slot, string name, byte[] rawData,
+        bool deleteExisting,
+        IProgress<(int chunksDone, int chunksTotal)>? progress = null,
+        CancellationToken ct = default) =>
+        InstallCoreAsync(NordCommands.PianoLibraryId, categoryIndex, slot,
+            "npno", 0xffff_ffffu, name, rawData, deleteExisting,
+            drainCompaction: true, progress, ct);
+
+    /// <summary>
+    /// Install a sample (nsmp) file into the Sample library. If <paramref name="deleteExisting"/>
+    /// is true the current occupant is deleted first. Sample deletes do not trigger flash
+    /// compaction. <paramref name="rawData"/> is the CBIN-stripped payload.
+    /// </summary>
+    public Task InstallSampleAsync(
+        int slot, string name, byte[] rawData, uint categoryCode,
+        bool deleteExisting,
+        IProgress<(int chunksDone, int chunksTotal)>? progress = null,
+        CancellationToken ct = default) =>
+        InstallCoreAsync(NordCommands.SampLibraryId, bank: 0, slot,
+            "nsmp", categoryCode, name, rawData, deleteExisting,
+            drainCompaction: false, progress, ct);
+
+    private async Task InstallCoreAsync(
+        uint libraryId, int bank, int slot,
+        string fileType, uint categoryCode, string name, byte[] rawData,
+        bool deleteExisting, bool drainCompaction,
+        IProgress<(int, int)>? progress, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var libPayload = new byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(libPayload, libraryId);
+            await SendRawAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.LibrarySelect, libPayload, ct).ConfigureAwait(false);
+            await ReceiveRawAsync(ct).ConfigureAwait(false);  // LibrarySelectAck
+
+            if (deleteExisting)
+            {
+                var itemPayload = new byte[8];
+                BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(0, 4), (uint)bank);
+                BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(4, 4), (uint)slot);
+                await SendRawAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.DeleteRequest, itemPayload, ct).ConfigureAwait(false);
+                var delRaw = await ReceiveRawAsync(ct).ConfigureAwait(false);
+                CheckStatusResponse(delRaw, "Delete");
+
+                if (drainCompaction)
+                    await DrainFlashCompactionAsync(ct).ConfigureAwait(false);
+            }
+
+            await UploadChunkedAsync(libraryId, bank, slot, fileType, categoryCode, name, rawData, progress, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    // Called inside held gate. Reads unsolicited messages after piano delete
+    // (CMD_STATUS "Cleaning…" strings, then FlashCompactNotify) and drives the
+    // host-side poll loop until the device signals is_busy == 0.
+    private async Task DrainFlashCompactionAsync(CancellationToken ct)
+    {
+        while (true)
+        {
+            var raw = await ReceiveRawAsync(ct).ConfigureAwait(false);
+            if (!MessageParser.TryParse(raw, out var msg)) return;
+
+            if (msg.Command == NordCommands.CmdStatus) continue;  // eat "Cleaning…" etc.
+
+            if (msg.Param2 == NordCommands.FlashCompactNotify)
+            {
+                // ACK — no D→H reply expected
+                var ackFrame = MessageBuilder.Build(NordCommands.CmdQuery, NordCommands.ParamQuery,
+                    NordCommands.FlashCompactAck, [0, 0, 0, 0]);
+                await device.SendAsync(ackFrame, ct).ConfigureAwait(false);
+
+                // Poll until is_busy (word[3]) == 0
+                var pollFrame = MessageBuilder.Build(NordCommands.CmdQuery, NordCommands.ParamQuery,
+                    NordCommands.FlashCompactPoll, ReadOnlySpan<byte>.Empty);
+                while (true)
+                {
+                    await device.SendAsync(pollFrame, ct).ConfigureAwait(false);
+                    var stateRaw = await ReceiveRawAsync(ct).ConfigureAwait(false);
+                    if (MessageParser.TryParse(stateRaw, out var stateMsg)
+                        && stateMsg.Payload.Length >= 16
+                        && BinaryPrimitives.ReadUInt32BigEndian(stateMsg.Payload.Span.Slice(12, 4)) == 0)
+                        break;
+                }
+                return;
+            }
+
+            return;  // unexpected message — skip compaction
+        }
+    }
+
+    // Sends UploadMetadata + N×SendFileData + FinishTransfer. Called inside held gate.
+    private async Task UploadChunkedAsync(
+        uint libraryId, int bank, int slot,
+        string fileType, uint categoryCode, string name, byte[] rawData,
+        IProgress<(int, int)>? progress, CancellationToken ct)
+    {
+        const int ChunkSize = 32_726;
+
+        var nameBytes = System.Text.Encoding.ASCII.GetBytes(name);
+        var metaPayload = new byte[28 + nameBytes.Length];
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(0,  4), (uint)bank);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(4,  4), (uint)slot);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(8,  4), (uint)rawData.Length);
+        System.Text.Encoding.ASCII.GetBytes(fileType).CopyTo(metaPayload.AsSpan(12, 4));
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(16, 4), Crc32.HashToUInt32(rawData));
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(20, 4), categoryCode);
+        BinaryPrimitives.WriteUInt32BigEndian(metaPayload.AsSpan(24, 4), (uint)nameBytes.Length);
+        nameBytes.CopyTo(metaPayload.AsSpan(28));
+
+        await SendRawAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.UploadMetadata, metaPayload, ct).ConfigureAwait(false);
+        await ReceiveRawAsync(ct).ConfigureAwait(false);  // UploadMetadataAck
+
+        int offset = 0, chunkIndex = 0;
+        int totalChunks = (rawData.Length + ChunkSize - 1) / ChunkSize;
+        while (offset < rawData.Length)
+        {
+            int chunkLen = Math.Min(ChunkSize, rawData.Length - offset);
+            var dataPayload = new byte[16 + chunkLen];
+            BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(0,  4), (uint)bank);
+            BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(4,  4), (uint)slot);
+            BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(8,  4), (uint)offset);
+            BinaryPrimitives.WriteUInt32BigEndian(dataPayload.AsSpan(12, 4), (uint)chunkLen);
+            rawData.AsSpan(offset, chunkLen).CopyTo(dataPayload.AsSpan(16));
+
+            await SendRawAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.SendFileData, dataPayload, ct).ConfigureAwait(false);
+            await ReceiveRawAsync(ct).ConfigureAwait(false);  // SendFileDataAck
+
+            offset += chunkLen;
+            chunkIndex++;
+            progress?.Report((chunkIndex, totalChunks));
+        }
+
+        var itemPayload = new byte[8];
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(0, 4), (uint)bank);
+        BinaryPrimitives.WriteUInt32BigEndian(itemPayload.AsSpan(4, 4), (uint)slot);
+        await SendRawAsync(NordCommands.CmdQuery, NordCommands.ParamQuery, NordCommands.FinishTransfer, itemPayload, ct).ConfigureAwait(false);
+        await ReceiveRawAsync(ct).ConfigureAwait(false);  // FinishTransferAck
+    }
+
+    // Ungated send/receive helpers used inside already-held-gate sections.
+    private Task SendRawAsync(uint cmd, uint param1, uint param2, ReadOnlyMemory<byte> payload, CancellationToken ct)
+    {
+        var frame = MessageBuilder.Build(cmd, param1, param2, payload.Span);
+        return device.SendAsync(frame, ct);
+    }
+
+    private Task<ReadOnlyMemory<byte>> ReceiveRawAsync(CancellationToken ct) =>
+        device.ReceiveAsync(MaxResponseBytes, ct);
+
+    // ----------------------------------------------------------------
+
     /// <summary>
     /// Send the session-close handshake and read the ack.
     /// Should be called before <see cref="Dispose"/>. Best-effort — callers should Dispose

@@ -21,7 +21,7 @@ public sealed class SoundLibrary
     public ObservableCollection<BankEntry> SynthBanks { get; } = new();
 
     public long PianoStorageUsedBytes => PianoCategories.Sum(e => e.SizeBytes);
-    public long PianoStorageFreeBytes { get; private set; }
+    public long PianoStorageFreeBytes { get; set; }
 
     public LibraryStorageInfo SampLibStorage { get; private set; }
     public LibraryStorageInfo SynthStorage { get; private set; }
