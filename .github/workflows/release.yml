@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to create GitHub releases and tags
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # GitVersion needs the full commit + tag history
+
+      - name: Setup GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: '6.x'
+
+      - name: Execute GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v3
+        with:
+          useConfigFile: true   # reads GitVersion.yml from repo root
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish linux-x64 (self-contained, single-file)
+        run: >
+          dotnet publish NordSampleManager/NordSampleManager.csproj
+          --configuration Release
+          --runtime linux-x64
+          --self-contained true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+          -p:FileVersion=${{ steps.gitversion.outputs.assemblySemFileVer }}
+          -p:InformationalVersion="${{ steps.gitversion.outputs.informationalVersion }}"
+          --output publish/linux-x64
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v${{ steps.gitversion.outputs.semVer }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create archive
+        id: archive
+        run: |
+          ARCHIVE="nord-sample-manager-${{ steps.gitversion.outputs.semVer }}-linux-x64.tar.gz"
+          tar -czf "$ARCHIVE" -C publish/linux-x64 .
+          echo "path=$ARCHIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: Nord Sample Manager ${{ steps.gitversion.outputs.semVer }}
+          generate_release_notes: true
+          prerelease: ${{ steps.gitversion.outputs.preReleaseLabel != '' }}
+          files: ${{ steps.archive.outputs.path }}
