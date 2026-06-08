@@ -143,6 +143,12 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ToggleSoundLibrary() => SoundLibraryVisible = !SoundLibraryVisible;
 
+    partial void OnSoundLibraryVisibleChanged(bool value)
+    {
+        if (value && SoundLibrary.PianoCatalog.Count == 0 && !SoundLibrary.IsLoadingCatalog)
+            _ = SoundLibrary.LoadCatalogCommand.ExecuteAsync(null);
+    }
+
     /// <summary>
     /// "Transfer to Instrument": installs the selected online sound into the next available
     /// empty slot. Fails early if there is not enough storage space.

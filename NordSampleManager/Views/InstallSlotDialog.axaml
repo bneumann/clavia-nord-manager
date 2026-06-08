@@ -5,7 +5,7 @@
         x:Class="NordSampleManager.Views.InstallSlotDialog"
         x:DataType="vm:InstallSlotDialogViewModel"
         Title="Install to Device"
-        Width="420" Height="320"
+        Width="420" Height="340"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
   <Grid RowDefinitions="*,Auto" Margin="16">

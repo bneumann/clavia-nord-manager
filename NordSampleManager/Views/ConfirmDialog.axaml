@@ -4,7 +4,7 @@
         x:Class="NordSampleManager.Views.ConfirmDialog"
         x:DataType="vm:ConfirmDialogViewModel"
         Title="{Binding Title}"
-        Width="380" Height="160"
+        Width="380" Height="170"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
   <Grid RowDefinitions="*,Auto" Margin="16">

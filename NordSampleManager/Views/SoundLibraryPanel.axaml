@@ -7,10 +7,19 @@
   <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
     <!-- Header -->
-    <TextBlock Grid.Row="0"
-               Text="Sound Library"
-               FontWeight="SemiBold" FontSize="14"
-               Margin="0,0,0,8"/>
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+      <TextBlock Grid.Column="0"
+                 Text="Sound Library"
+                 FontWeight="SemiBold" FontSize="14"
+                 VerticalAlignment="Center"/>
+      <Button Grid.Column="1"
+              Content="↺ Refresh"
+              Command="{Binding LoadCatalogCommand}"
+              IsEnabled="{Binding !IsLoadingCatalog}"
+              FontSize="11"
+              Padding="6,3"
+              ToolTip.Tip="Reload catalog from nordkeyboards.com"/>
+    </Grid>
 
     <!-- Library type selector -->
     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
@@ -40,7 +49,7 @@
             <StackPanel Margin="2,4">
               <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
               <TextBlock Text="{Binding Description}"
-                         FontSize="11" Opacity="0.7"
+                         FontSize="11" Opacity="0.65"
                          MaxLines="2" TextWrapping="Wrap"/>
               <WrapPanel Margin="0,4,0,0">
                 <ItemsControl ItemsSource="{Binding Tags}">
@@ -50,7 +59,7 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Border Background="{DynamicResource SystemBaseLowColor}"
-                              CornerRadius="3" Padding="4,1" Margin="0,0,4,0">
+                              CornerRadius="3" Padding="4,1" Margin="0,0,4,2">
                         <TextBlock Text="{Binding}" FontSize="10"/>
                       </Border>
                     </DataTemplate>
@@ -70,7 +79,7 @@
                  SelectedItem="{Binding SelectedCategory}">
           <ListBox.ItemTemplate>
             <DataTemplate DataType="svc:LibraryCatalogEntry">
-              <TextBlock Text="{Binding Title}" Margin="2,2"/>
+              <TextBlock Text="{Binding Title}" Margin="2,3" TextWrapping="Wrap" FontSize="12"/>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
@@ -82,8 +91,9 @@
             <ListBox.ItemTemplate>
               <DataTemplate DataType="svc:SampleInstrument">
                 <StackPanel Margin="2,2">
-                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12"/>
-                  <TextBlock FontSize="10" Opacity="0.7">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12"
+                             TextWrapping="Wrap"/>
+                  <TextBlock FontSize="10" Opacity="0.65">
                     <Run Text="{Binding FileSize}"/>
                     <Run Text=" · v"/>
                     <Run Text="{Binding Version}"/>
@@ -92,33 +102,57 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <ProgressBar Grid.Row="1" IsIndeterminate="True" IsVisible="{Binding IsLoadingInstruments}" Height="3"/>
+          <ProgressBar Grid.Row="1" IsIndeterminate="True"
+                       IsVisible="{Binding IsLoadingInstruments}" Height="3"/>
         </Grid>
       </Grid>
 
+      <!-- Empty / loading placeholder -->
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6"
+                  IsVisible="{Binding IsLoadingCatalog}"
+                  Opacity="0.5">
+        <ProgressBar IsIndeterminate="True" Width="120" Height="4"/>
+        <TextBlock Text="Loading catalog…" FontSize="11" HorizontalAlignment="Center"/>
+      </StackPanel>
+
     </Grid>
 
-    <!-- Bottom bar -->
-    <StackPanel Grid.Row="4" Spacing="8" Margin="0,8,0,0">
-      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingCatalog}" Height="3"/>
-      <TextBlock Text="{Binding StatusMessage}" FontSize="11" Opacity="0.7"
-                 TextWrapping="Wrap" MaxLines="2"/>
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Refresh"
-                Command="{Binding LoadCatalogCommand}"
-                IsEnabled="{Binding !IsLoadingCatalog}"/>
+    <!-- Bottom bar: selected item info + action buttons -->
+    <Border Grid.Row="4" Margin="0,8,0,0"
+            Padding="8"
+            BorderBrush="{DynamicResource SystemBaseLowColor}"
+            BorderThickness="0,1,0,0">
+      <StackPanel Spacing="6">
+
+        <!-- Status message (loading info, errors) -->
+        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Opacity="0.65"
+                   TextWrapping="Wrap" MaxLines="2"
+                   IsVisible="{Binding StatusMessage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+        <!-- No selection placeholder -->
+        <TextBlock Text="Select a sound above to install it"
+                   FontSize="11" Opacity="0.45" HorizontalAlignment="Center"
+                   Margin="0,4"
+                   IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNull}}"/>
+
+        <!-- Action buttons (visible when item is selected) -->
+        <StackPanel Spacing="6"
+                    IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <Button Content="⬇  Transfer to Instrument"
+                  Click="OnTransferClick"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center"
+                  FontWeight="Medium"
+                  ToolTip.Tip="Download this sound and install it into the next available empty slot"/>
+          <Button Content="⇄  Substitute Selected Sound"
+                  Click="OnSubstituteClick"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Replace the sound currently selected in the main list with this one"/>
+        </StackPanel>
+
       </StackPanel>
-      <StackPanel Spacing="4" IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
-        <Button Content="Transfer to Instrument"
-                Click="OnTransferClick"
-                HorizontalAlignment="Stretch"
-                ToolTip.Tip="Download and install into the next available empty slot"/>
-        <Button Content="Substitute Selected Sound"
-                Click="OnSubstituteClick"
-                HorizontalAlignment="Stretch"
-                ToolTip.Tip="Replace the currently selected sound on the device with this one"/>
-      </StackPanel>
-    </StackPanel>
+    </Border>
 
   </Grid>
 </UserControl>

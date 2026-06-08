@@ -4,56 +4,85 @@
         xmlns:views="using:NordSampleManager.Views"
         x:Class="NordSampleManager.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="1100" Height="720"
+        Width="1200" Height="730" MinWidth="900"
         Title="Nord Sample Manager">
-  <Grid RowDefinitions="Auto,*">
-    <Border Grid.Row="0" Padding="12,10" Background="{DynamicResource SystemRegionBrush}">
-      <StackPanel Orientation="Horizontal" Spacing="12">
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- ── Toolbar ────────────────────────────────────────────────────── -->
+    <Border Grid.Row="0" Padding="10,8"
+            Background="{DynamicResource SystemRegionBrush}"
+            BorderBrush="{DynamicResource SystemBaseLowColor}"
+            BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+
+        <!-- Connection group -->
         <Button Content="Connect &amp; load"
                 Command="{Binding ConnectAndLoadCommand}"
-                IsEnabled="{Binding CanConnect}"/>
+                IsEnabled="{Binding CanConnect}"
+                Classes.accent="{Binding CanConnect}"
+                ToolTip.Tip="Connect to the Nord Stage 3 and load all libraries"/>
         <Button Content="Reload"
                 Command="{Binding ReloadCommand}"
-                IsEnabled="{Binding CanReload}"/>
+                IsEnabled="{Binding CanReload}"
+                ToolTip.Tip="Re-read all libraries from the connected device"/>
+
+        <Separator Width="1" Margin="6,0"/>
+
+        <!-- Sound editing group (programs only) -->
         <Button Content="Rename…"
                 Command="{Binding RenameCommand}"
-                IsEnabled="{Binding CanRename}"/>
+                IsEnabled="{Binding CanRename}"
+                ToolTip.Tip="Rename the selected program"/>
         <Button Content="Export…"
                 Command="{Binding ExportCommand}"
-                IsEnabled="{Binding CanExport}"/>
-        <Button Content="Delete…"
-                Command="{Binding DeleteCommand}"
-                IsEnabled="{Binding CanDelete}"/>
+                IsEnabled="{Binding CanExport}"
+                ToolTip.Tip="Export the selected program to a .ns3f file"/>
         <Button Content="Upload…"
                 Command="{Binding UploadCommand}"
-                IsEnabled="{Binding CanUpload}"/>
-        <Separator Width="1"/>
-        <ToggleButton Content="Sound Library"
-                      IsChecked="{Binding SoundLibraryVisible}"/>
-        <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
-        <ProgressBar IsIndeterminate="True" Width="120"
-                     IsVisible="{Binding IsBusy}" VerticalAlignment="Center"/>
+                IsEnabled="{Binding CanUpload}"
+                ToolTip.Tip="Upload a .ns3f program file to the device"/>
+        <Button Content="Delete…"
+                Command="{Binding DeleteCommand}"
+                IsEnabled="{Binding CanDelete}"
+                ToolTip.Tip="Permanently delete the selected program from the device"/>
+
+        <Separator Width="1" Margin="6,0"/>
+
+        <!-- Sound library -->
+        <ToggleButton Content="☰ Sound Library"
+                      IsChecked="{Binding SoundLibraryVisible}"
+                      ToolTip.Tip="Browse and install sounds from the Nord online library"/>
+
       </StackPanel>
     </Border>
 
+    <!-- ── Main content ────────────────────────────────────────────────── -->
     <Grid Grid.Row="1" ColumnDefinitions="200,*,320,Auto">
+
       <!-- Left rail: category list + storage widget -->
       <Grid Grid.Column="0" RowDefinitions="*,Auto">
         <ListBox Grid.Row="0"
-                 Margin="8"
+                 Margin="8,8,8,4"
                  ItemsSource="{Binding Categories}"
                  SelectedItem="{Binding SelectedCategory}">
           <ListBox.ItemTemplate>
             <DataTemplate DataType="vm:CategoryViewModel">
-              <StackPanel Margin="2,4">
+              <StackPanel Margin="2,5">
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.7"/>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.6"/>
+                  <TextBlock FontSize="11" Opacity="0.4"
+                             IsVisible="{Binding TotalCount, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Run Text="·"/>
+                    <Run Text="{Binding TotalCount}"/>
+                  </TextBlock>
+                </StackPanel>
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- Storage pie chart — visible when piano library stats are available -->
+        <!-- Storage pie chart -->
         <Border Grid.Row="1"
                 IsVisible="{Binding StorageVisible}"
                 Margin="8,0,8,8" Padding="8"
@@ -62,11 +91,11 @@
           <StackPanel Spacing="4">
             <views:StoragePieControl
                 UsedFraction="{Binding StorageUsedFraction}"
-                Height="110"/>
+                Height="100"/>
             <TextBlock Text="{Binding StorageUsedText}"
                        FontSize="11" HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding StorageFreeText}"
-                       FontSize="11" HorizontalAlignment="Center" Opacity="0.7"/>
+                       FontSize="11" HorizontalAlignment="Center" Opacity="0.6"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -76,7 +105,7 @@
         <Grid RowDefinitions="Auto,*">
           <TextBox Grid.Row="0"
                    Margin="8,8,8,4"
-                   PlaceholderText="Filter…"
+                   PlaceholderText="Filter by name, category…"
                    Text="{Binding SelectedCategory.FilterText}"
                    IsEnabled="{Binding SelectedCategory, Converter={x:Static ObjectConverters.IsNotNull}}"/>
           <DataGrid Grid.Row="1"
@@ -92,16 +121,17 @@
               <DataGridTemplateColumn Width="28" Header="">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="⠿" FontSize="14"
+                    <TextBlock Text="⠿" FontSize="13" Opacity="0.4"
                                VerticalAlignment="Center" HorizontalAlignment="Center"
                                Cursor="SizeAll"
+                               ToolTip.Tip="Drag to swap positions (Programs only)"
                                PointerPressed="OnGripPointerPressed"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTextColumn Header="#"    Binding="{Binding Index}" Width="60"/>
-              <DataGridTextColumn Header="Kind" Binding="{Binding Kind}"  Width="180"/>
-              <DataGridTextColumn Header="Name" Binding="{Binding Name}"  Width="*"/>
+              <DataGridTextColumn Header="Slot" Binding="{Binding Index}" Width="52"/>
+              <DataGridTextColumn Header="Category" Binding="{Binding Kind}"  Width="160"/>
+              <DataGridTextColumn Header="Name"     Binding="{Binding Name}"  Width="*"/>
             </DataGrid.Columns>
           </DataGrid>
         </Grid>
@@ -112,20 +142,32 @@
               BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="4">
         <Grid RowDefinitions="Auto,Auto,*">
           <TextBlock Grid.Row="0" Text="Detail" FontWeight="SemiBold" FontSize="13"/>
-          <TextBlock Grid.Row="1" Text="{Binding DetailHeader}" FontSize="16" Margin="0,8,0,4"/>
+          <TextBlock Grid.Row="1" Text="{Binding DetailHeader}" FontSize="15"
+                     FontWeight="Medium" Margin="0,6,0,4"
+                     TextWrapping="Wrap"/>
           <ScrollViewer Grid.Row="2">
+            <!-- Detail body when something is selected -->
             <TextBlock Text="{Binding DetailBody}"
                        TextWrapping="Wrap"
-                       FontFamily="Inter, Cascadia Mono, Consolas, monospace"
-                       FontSize="12"/>
+                       FontFamily="Cascadia Mono, Consolas, monospace"
+                       FontSize="11.5"
+                       IsVisible="{Binding DetailBody, Converter={x:Static ObjectConverters.IsNotNull}}"/>
           </ScrollViewer>
+          <!-- Empty state -->
+          <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6"
+                      IsVisible="{Binding DetailBody, Converter={x:Static ObjectConverters.IsNull}}"
+                      Opacity="0.35">
+            <TextBlock Text="↑" FontSize="28" HorizontalAlignment="Center"/>
+            <TextBlock Text="Select an item" FontSize="12" HorizontalAlignment="Center"/>
+            <TextBlock Text="to view details" FontSize="12" HorizontalAlignment="Center"/>
+          </StackPanel>
         </Grid>
       </Border>
 
-      <!-- Sound library panel (collapsible) -->
+      <!-- Sound library panel (collapsible, 4th column) -->
       <Border Grid.Column="3"
               IsVisible="{Binding SoundLibraryVisible}"
-              Width="380"
+              Width="360"
               BorderBrush="{DynamicResource SystemBaseLowColor}"
               BorderThickness="1,0,0,0">
         <views:SoundLibraryPanel
@@ -135,5 +177,25 @@
             SubstituteRequested="OnSubstituteRequested"/>
       </Border>
     </Grid>
+
+    <!-- ── Status bar ──────────────────────────────────────────────────── -->
+    <Border Grid.Row="2" Padding="12,4"
+            Background="{DynamicResource SystemRegionBrush}"
+            BorderBrush="{DynamicResource SystemBaseLowColor}"
+            BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding StatusText}"
+                   VerticalAlignment="Center"
+                   FontSize="12" Opacity="0.85"
+                   TextTrimming="CharacterEllipsis"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                    IsVisible="{Binding IsBusy}">
+          <ProgressBar IsIndeterminate="True" Width="110" Height="4"/>
+          <TextBlock Text="Working…" FontSize="11" Opacity="0.6"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
   </Grid>
 </Window>

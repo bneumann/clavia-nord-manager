@@ -18,6 +18,8 @@ public sealed partial class CategoryViewModel : ObservableObject
     [ObservableProperty] private BankEntry? selectedEntry;
     [ObservableProperty] private string filterText = string.Empty;
 
+    public int TotalCount => Entries.Count;
+
     public CategoryViewModel(LibraryCategory category, string title, string subtitle, ObservableCollection<BankEntry> entries)
     {
         Category = category;
@@ -28,7 +30,11 @@ public sealed partial class CategoryViewModel : ObservableObject
         RebuildFilter();
     }
 
-    private void OnEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildFilter();
+    private void OnEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildFilter();
+        OnPropertyChanged(nameof(TotalCount));
+    }
 
     partial void OnFilterTextChanged(string value) => RebuildFilter();
 
